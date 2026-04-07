@@ -1,0 +1,17 @@
+connectors:
+  - proxmox
+runner: proxmox_ct
+pipelines:
+  - name: File-keeper
+    pipeline:
+      - id: curl-installed
+        exec: which curl
+        check_method: stdout_not_empty
+        if_failed: apt install curl -y
+
+      - id: fk-installed
+        requires:
+          - curl-installed
+        exec: which fk
+        check_method: stdout_not_empty
+        if_failed: curl -sSL https://raw.githubusercontent.com/AlexAuragan/file-keeper/main/install.sh | bash

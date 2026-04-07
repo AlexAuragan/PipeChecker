@@ -1,0 +1,6 @@
+my-caddy:
+  type: Caddy
+  config_path:
+    - tests/fixtures/Caddyfile
+  config_ssh: []
+  config_url: []

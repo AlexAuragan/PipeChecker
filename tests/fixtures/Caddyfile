@@ -1,0 +1,32 @@
+jellyfin.auragan.fr {
+	route {
+		crowdsec
+		reverse_proxy 192.168.1.118:8096
+	}
+	tls {
+		dns cloudflare "{env.CF_API_TOKEN}"
+	}
+	log
+}
+
+grafana.auragan.fr {
+	route {
+		crowdsec
+		reverse_proxy 192.168.1.120:3000
+	}
+	tls {
+		dns cloudflare "{env.CF_API_TOKEN}"
+	}
+	log
+}
+
+homeassistant.auragan.fr {
+	route {
+		crowdsec
+		reverse_proxy 192.168.1.105:8123
+	}
+	tls {
+		dns cloudflare "{env.CF_API_TOKEN}"
+	}
+	log
+}

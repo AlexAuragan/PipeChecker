@@ -1,0 +1,7 @@
+my-proxmox:
+  type: Proxmox
+  config_ssh:
+    - root@192.168.1.9
+    - root@192.168.1.10
+  config_path: []
+  config_url: []
