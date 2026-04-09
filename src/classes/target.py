@@ -14,6 +14,10 @@ class Target(ABC):
     def config(self) -> dict:
         pass
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
 
 @dataclass
 class Url(Target):
@@ -26,6 +30,10 @@ class Url(Target):
     @property
     def config(self) -> dict:
         return {"url": self.url}
+
+    @property
+    def name(self) -> str:
+        return self.url.split("://")[-1].split("/")[0]
 
 
 @dataclass
@@ -58,3 +66,7 @@ class ProxmoxCT(Target):
             "pct_status": self.pct_status,
             "ostype": self.ostype,
         }
+
+    @property
+    def name(self):
+        return f"[{self.pct_id}] {self.pct_name}"

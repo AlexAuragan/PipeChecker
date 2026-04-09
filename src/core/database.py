@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import model_validator
+from sqlalchemy import inspect as sa_inspect, text
 from sqlmodel import SQLModel, Field, Relationship, create_engine
 
 from src import config
@@ -13,14 +14,22 @@ class JobStatus(str, Enum):
     pending = "pending"
     running = "running"
     completed = "completed"
-    failed = "failed"
+    failed = "failed"    # pre-execution failure (pipeline not found, etc.)
+    crashed = "crashed"  # mid-execution exception or server-restart interruption
     cancelled = "cancelled"
+
+
+class JobSource(str, Enum):
+    manual = "manual"
+    cron = "cron"
+    event = "event"
 
 
 class Job(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     pipeline_name: str | None = None
     status: JobStatus = JobStatus.pending
+    source: JobSource = Field(default=JobSource.manual)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     results: list["LivePipelineResult"] = Relationship(
@@ -39,6 +48,7 @@ class LivePipelineResult(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     job_id: UUID = Field(foreign_key="job.id")
     target_id: str
+    target_name: str = ""
     pipeline_name: str
     status: str  # green / orange / red
 
@@ -94,3 +104,14 @@ engine = create_engine(f"sqlite:///{config.DB_FILE}")
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    # Add source column to existing databases that predate this field.
+    with engine.connect() as conn:
+        job_cols = [c["name"] for c in sa_inspect(engine).get_columns("job")]
+        if "source" not in job_cols:
+            conn.execute(text("ALTER TABLE job ADD COLUMN source VARCHAR NOT NULL DEFAULT 'manual'"))
+            conn.commit()
+
+        lpr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")]
+        if "target_name" not in lpr_cols:
+            conn.execute(text("ALTER TABLE livepipelineresult ADD COLUMN target_name VARCHAR NOT NULL DEFAULT ''"))
+            conn.commit()

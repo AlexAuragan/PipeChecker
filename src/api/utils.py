@@ -21,7 +21,8 @@ def make_scheduled_job(app: FastAPI, pipe: Pipeline):
         if manager is None:
             print(f"Skipping {pipe.name}: manager not ready")
             return
-        job_id = jobs.create_job(pipeline_name=pipe.name)
+        from src.core.database import JobSource
+        job_id = jobs.create_job(pipeline_name=pipe.name, source=JobSource.cron)
 
         await execute_job(job_id, pipe.name, manager)
 
@@ -41,6 +42,12 @@ async def initial_load(app):
 async def lifespan(app: FastAPI):
     app.state.manager = None
     app.state.ready = False
+
+    # Mark any jobs that were running when the server last died as crashed.
+    from src.core import jobs as _jobs
+    n = _jobs.crash_stale_jobs(crash_all_running=True)
+    if n:
+        print(f"Marked {n} orphaned job(s) as crashed (server restart)")
 
     load_task = asyncio.create_task(initial_load(app))  # pass app
     watcher_task = asyncio.create_task(watch_config(app))
@@ -90,10 +97,16 @@ async def watch_config(app: FastAPI):
             print(f"Reload failed, keeping old config: {e}")
 
 async def _archive_loop():
-    """Run archival and cancelled-job cleanup every hour."""
+    """Run archival, stale-job cleanup, and cancelled-job cleanup every hour."""
     from src.core import jobs
     while True:
         await asyncio.sleep(3600)
+        try:
+            n = await asyncio.to_thread(jobs.crash_stale_jobs, False)
+            if n:
+                print(f"Timed out {n} stale job(s) → crashed")
+        except Exception as e:
+            print(f"Stale job cleanup failed: {e}")
         try:
             await asyncio.to_thread(jobs.archive_old_jobs)
         except Exception as e:
@@ -163,5 +176,5 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
             return
         jobs.set_job_status(job_id, JobStatus.completed)
     except Exception as e:
-        jobs.set_job_status(job_id, JobStatus.failed)
-        print(f"Job {job_id} failed with exception: {e}")
+        jobs.set_job_status(job_id, JobStatus.crashed)
+        print(f"Job {job_id} crashed with exception: {e}")

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}{{ pipeline.name }} — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/">Pipelines</a>
+  <span>›</span>
+  {{ pipeline.name }}
+</div>
+
+<div class="section">
+  <h1>{{ pipeline.name | upper }}</h1>
+
+  <div class="info-grid">
+    <div class="info-item">
+      <label>Group</label>
+      <span><code>{{ group }}</code></span>
+    </div>
+    <div class="info-item">
+      <label>Schedule</label>
+      <span><code>{{ pipeline.cron }}</code></span>
+    </div>
+    <div class="info-item">
+      <label>Runner</label>
+      <span><code>{{ pipeline.runner.value }}</code></span>
+    </div>
+    <div class="info-item">
+      <label>Connectors</label>
+      <span>
+        {% for c in pipeline.connectors %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+        {% if not pipeline.connectors %}<span style="color:var(--ink-light)">none</span>{% endif %}
+      </span>
+    </div>
+    <div class="info-item">
+      <label>Steps</label>
+      <span>{{ pipeline.pipeline | length }}</span>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
+    <button
+      hx-post="/api/v1/jobs/{{ pipeline.name }}"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ window.location='/job/'+JSON.parse(event.detail.xhr.responseText).job_id }">
+      ▶ Run Now
+    </button>
+    <a href="/pipeline/{{ pipeline.name }}/edit" class="btn btn-sm">✎ Edit</a>
+  </div>
+</div>
+
+<div class="section">
+  <h2>STEP GRAPH</h2>
+  <div class="graph-outer">
+    <div class="graph-container" data-edges='{{ edges }}'>
+      {% for column in columns %}
+      <div class="graph-column">
+        <div class="graph-col-label">Stage {{ loop.index0 }}</div>
+        {% for step in column %}
+        <div class="step-node" data-step-id="{{ step.id }}">
+          <div class="step-node-id">{{ step.id }}</div>
+          <div class="step-node-cmd" title="{{ step.exec }}">{{ step.exec }}</div>
+          <div class="step-node-status" style="color:var(--ink-light)">
+            {{ step.check_method.value }}
+            {% if step.requires %}
+              · needs {% for r in step.requires %}<code style="font-size:9px">{{ r }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Step list -->
+  <h2 style="margin-top:24px">STEPS</h2>
+  {% for step in pipeline.pipeline %}
+  <details class="step-details">
+    <summary>
+      <code>{{ step.id }}</code>
+      <span style="color:var(--ink-light); font-size:11px">{{ step.check_method.value }}</span>
+    </summary>
+    <div class="detail-body">
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Command</label>
+          <span><code>{{ step.exec }}</code></span>
+        </div>
+        <div class="info-item">
+          <label>Check method</label>
+          <span><code>{{ step.check_method.value }}</code></span>
+        </div>
+        {% if step.check_pattern %}
+        <div class="info-item">
+          <label>Pattern</label>
+          <span><code>{{ step.check_pattern }}</code></span>
+        </div>
+        {% endif %}
+        {% if step.if_failed %}
+        <div class="info-item">
+          <label>Remediation</label>
+          <span><code>{{ step.if_failed }}</code></span>
+        </div>
+        {% endif %}
+        {% if step.requires %}
+        <div class="info-item">
+          <label>Requires</label>
+          <span>{% for r in step.requires %}<code>{{ r }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+
+<div class="section">
+  <h2>JOB HISTORY</h2>
+  {% if pipeline_jobs %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Job ID</th>
+        <th>Status</th>
+        <th>Source</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in pipeline_jobs %}
+      <tr>
+        <td><a href="/job/{{ job.id }}" style="font-size:11px">{{ job.id }}</a></td>
+        <td><span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span></td>
+        <td><span class="badge {{ source_badge(job.source) }}">{{ job.source.value }}</span></td>
+        <td style="font-size:11px; color:var(--ink-mid)">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">No jobs run yet for this pipeline.</div>
+  {% endif %}
+</div>
+{% endblock %}

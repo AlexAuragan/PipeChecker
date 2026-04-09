@@ -1,0 +1,54 @@
+<div class="step-row" id="step-row-{{ idx }}">
+  <div class="step-row-header">
+    <span class="step-row-label">Step {{ idx + 1 }}</span>
+    <button type="button" class="btn-remove btn-sm"
+            onclick="this.closest('.step-row').remove()">✕ Remove</button>
+  </div>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label>ID <span style="color:var(--r)">*</span></label>
+      <input type="text" name="step_id_{{ idx }}"
+             value="{{ step.id if step else '' }}"
+             placeholder="e.g. check-nginx" required>
+    </div>
+    <div class="form-group" style="grid-column: span 2">
+      <label>Command <span style="color:var(--r)">*</span></label>
+      <input type="text" name="step_exec_{{ idx }}"
+             value="{{ step.exec if step else '' }}"
+             placeholder="e.g. systemctl is-active nginx" required>
+    </div>
+    <div class="form-group">
+      <label>Check method</label>
+      <select name="step_check_method_{{ idx }}"
+              onchange="togglePattern(this, {{ idx }})">
+        {% for cm in check_methods %}
+        <option value="{{ cm.value }}"
+          {% if step and step.check_method == cm.value %}selected{% endif %}>
+          {{ cm.value }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" id="pattern-group-{{ idx }}"
+         {% if not step or step.check_method not in ('stdout_regex','stdout_contains') %}style="display:none"{% endif %}>
+      <label>Pattern</label>
+      <input type="text" name="step_check_pattern_{{ idx }}"
+             value="{{ step.check_pattern if step else '' }}"
+             placeholder="regex or string">
+    </div>
+    <div class="form-group">
+      <label>Remediation (if failed)</label>
+      <input type="text" name="step_if_failed_{{ idx }}"
+             value="{{ step.if_failed if step else '' }}"
+             placeholder="optional fix command">
+    </div>
+    <div class="form-group">
+      <label>Requires</label> <!-- TODO turn this into a select box -->
+      <input type="text" name="step_requires_{{ idx }}"
+             value="{{ step.requires if step else '' }}"
+             placeholder="step-id-1, step-id-2">
+      <span class="hint">Comma-separated step IDs</span>
+    </div>
+  </div>
+</div>

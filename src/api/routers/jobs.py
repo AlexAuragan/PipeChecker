@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from src.api import utils
 from src.classes.connectors import Manager
 from src.core import jobs
+from src.core.database import JobSource
 
 router = APIRouter(prefix="/jobs", tags=["jobs", "runs"])
 
@@ -33,6 +34,7 @@ class JobResponse(BaseModel):
     id: UUID
     pipeline_name: str
     status: str
+    source: str
     created_at: datetime
     results: list[PipelineResultResponse]
 
@@ -41,6 +43,7 @@ class JobSummaryResponse(BaseModel):
     id: UUID
     pipeline_name: str
     status: str
+    source: str
     created_at: datetime
 
 
@@ -56,7 +59,7 @@ def start_pipeline(
     group: Annotated[str | None, Query()] = None,
 ):
     utils.get_pipeline_or_404(name, group)
-    job_id = jobs.create_job(pipeline_name=name)
+    job_id = jobs.create_job(pipeline_name=name, source=JobSource.manual)
     background_tasks.add_task(utils.execute_job, job_id, name, manager)
     return JobCreatedResponse(job_id=job_id)
 

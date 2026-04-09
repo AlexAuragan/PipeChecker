@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Job {{ job.id | string | truncate(8, True, '') }} — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/">Pipelines</a>
+  <span>›</span>
+  <a href="/pipeline/{{ pipeline.name }}">{{ pipeline.name }}</a>
+  <span>›</span>
+  {{ job.id | string | truncate(8, True, '') }}…
+</div>
+
+<div id="job-content"
+  {% if is_live %}
+  hx-get="/job/{{ job.id }}"
+  hx-trigger="every 3s"
+  hx-select="#job-content"
+  hx-swap="outerHTML"
+  {% endif %}>
+
+  <div class="section">
+    <h1>
+      JOB
+      <span class="badge {{ status_badge(job.status) }}" style="font-size:13px; padding:3px 10px">{{ job.status.value }}</span>
+    </h1>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Job ID</label>
+        <span style="font-size:11px">{{ job.id }}</span>
+      </div>
+      <div class="info-item">
+        <label>Pipeline</label>
+        <span><a href="/pipeline/{{ pipeline.name }}">{{ pipeline.name }}</a></span>
+      </div>
+      <div class="info-item">
+        <label>Source</label>
+        <span><span class="badge {{ source_badge(job.source) }}">{{ job.source.value }}</span></span>
+      </div>
+      <div class="info-item">
+        <label>Started</label>
+        <span>{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+      </div>
+      <div class="info-item">
+        <label>Targets</label>
+        <span>{{ target_results | length }}</span>
+      </div>
+    </div>
+
+    {% if job.status.value in ["failed", "crashed", "cancelled"] %}
+    <button
+      hx-post="/api/v1/jobs/{{ job.id }}/retry"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ window.location='/job/'+JSON.parse(event.detail.xhr.responseText).job_id }">
+      ↺ Retry
+    </button>
+    {% endif %}
+    {% if job.status.value in ["pending", "running"] %}
+    <button class="btn-danger"
+      hx-post="/api/v1/jobs/{{ job.id }}/cancel"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ window.location.reload() }">
+      ✕ Cancel
+    </button>
+    {% endif %}
+  </div>
+
+  {% if not target_results %}
+  <div class="section">
+    <div class="empty">
+      {% if job.status.value == "pending" %}Waiting to start…
+      {% elif job.status.value == "running" %}Running — results will appear as targets complete.
+      {% else %}No results recorded.{% endif %}
+    </div>
+  </div>
+  {% else %}
+
+  {% set total = target_results | length %}
+
+  {% if total > 1 %}
+  <div class="filter-block">
+    <input type="radio" name="tfilter" id="tf-all"    checked hidden>
+    <input type="radio" name="tfilter" id="tf-green"  hidden>
+    <input type="radio" name="tfilter" id="tf-orange" hidden>
+    <input type="radio" name="tfilter" id="tf-red"    hidden>
+
+    <div class="filter-bar">
+      <label for="tf-all"    class="ftab">All ({{ total }})</label>
+      <label for="tf-green"  class="ftab {% if status_counts.green  == 0 %}ftab-zero{% endif %}">✓ Passed ({{ status_counts.green }})</label>
+      <label for="tf-orange" class="ftab {% if status_counts.orange == 0 %}ftab-zero{% endif %}">~ Fixed ({{ status_counts.orange }})</label>
+      <label for="tf-red"    class="ftab {% if status_counts.red    == 0 %}ftab-zero{% endif %}">✗ Failed ({{ status_counts.red }})</label>
+    </div>
+
+    <div class="targets-list">
+      {% for tr in target_results %}
+      {% set target_name = tr.target_name %}
+      {% set t_status    = tr.t_status %}
+      {% set step_results = tr.step_results %}
+      <div class="target-section ts-{{ t_status }}">
+        {% include "_target_body.html" %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% else %}
+  {% for tr in target_results %}
+  {% set target_name = tr.target_name %}
+  {% set t_status    = tr.t_status %}
+  {% set step_results = tr.step_results %}
+  <div class="target-section">
+    {% include "_target_body.html" %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% endif %}
+
+</div>{# #job-content #}
+{% endblock %}

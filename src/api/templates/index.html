@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}PipeChecker — Pipelines{% endblock %}
+
+{% block content %}
+<div class="section">
+  <h1>PIPELINES <a href="/pipeline/new" class="btn btn-sm" style="font-size:11px; vertical-align:middle">+ New</a></h1>
+
+  {% if pipelines %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Schedule</th>
+        <th>Runner</th>
+        <th>Connectors</th>
+        <th>Steps</th>
+        <th>Last Run</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for name, pipeline in pipelines.items() %}
+      {% set job = latest_jobs.get(name) %}
+      <tr>
+        <td><a href="/pipeline/{{ name }}">{{ name }}</a></td>
+        <td><code>{{ pipeline.cron }}</code></td>
+        <td><code>{{ pipeline.runner.value }}</code></td>
+        <td>
+          {% for c in pipeline.connectors %}<code>{{ c }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+          {% if not pipeline.connectors %}<span style="color:var(--ink-light)">—</span>{% endif %}
+        </td>
+        <td>{{ pipeline.pipeline | length }}</td>
+        <td>
+          {% if job %}
+            <a href="/job/{{ job.id }}">
+              <span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span>
+            </a>
+            <span style="color:var(--ink-light); font-size:11px; margin-left:8px">
+              {{ job.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </span>
+          {% else %}
+            <span style="color:var(--ink-light)">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <button class="btn-sm"
+            hx-post="/api/v1/jobs/{{ name }}"
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful){ window.location='/job/'+JSON.parse(event.detail.xhr.responseText).job_id }">
+            Run
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">No pipelines found.</div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <h2>RECENT JOBS</h2>
+  {% if recent_jobs %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Pipeline</th>
+        <th>Status</th>
+        <th>Source</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in recent_jobs %}
+      <tr>
+        <td><a href="/job/{{ job.id }}" style="font-size:11px">{{ job.id | string | truncate(16, True, '') }}</a></td>
+        <td><a href="/pipeline/{{ job.pipeline_name }}">{{ job.pipeline_name }}</a></td>
+        <td><span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span></td>
+        <td><span class="badge {{ source_badge(job.source) }}">{{ job.source.value }}</span></td>
+        <td style="font-size:11px; color:var(--ink-mid)">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">No jobs yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

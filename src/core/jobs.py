@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from src.classes.results import PipelineResult
 from src.core.database import (
-    ArchivedRun, ArchivedStepResult, Job, JobStatus,
+    ArchivedRun, ArchivedStepResult, Job, JobSource, JobStatus,
     LivePipelineResult, LiveStepResult, engine,
 )
 
@@ -17,9 +17,9 @@ def is_cancelled(job_id: UUID) -> bool:
     return job_id in _cancelled
 
 
-def create_job(uuid: UUID = None, pipeline_name: str = None) -> UUID:
+def create_job(uuid: UUID = None, pipeline_name: str = None, source: JobSource = JobSource.manual) -> UUID:
     with Session(engine) as session:
-        job = Job(pipeline_name=pipeline_name, uuid=uuid)
+        job = Job(pipeline_name=pipeline_name, uuid=uuid, source=source)
         session.add(job)
         session.commit()
         session.refresh(job)
@@ -41,6 +41,7 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
         pr = LivePipelineResult(
             job_id=job_id,
             target_id=str(result.target.id),
+            target_name=result.target.name,
             pipeline_name=result.pipeline_name,
             status=result.status,
         )
@@ -69,10 +70,12 @@ def get_job(job_id: UUID) -> dict | None:
             "id": job.id,
             "pipeline_name": job.pipeline_name,
             "status": job.status,
+            "source": job.source,
             "created_at": job.created_at,
             "results": [
                 {
                     "target_id": pr.target_id,
+                    "target_name": pr.target_name or pr.target_id,
                     "pipeline_name": pr.pipeline_name,
                     "status": pr.status,
                     "steps": [
@@ -92,14 +95,51 @@ def get_job(job_id: UUID) -> dict | None:
         }
 
 
+_TERMINAL = (JobStatus.completed, JobStatus.failed, JobStatus.crashed, JobStatus.cancelled)
+_STALE_AFTER = timedelta(hours=1)
+
+
+def crash_stale_jobs(crash_all_running: bool = False) -> int:
+    """
+    Mark jobs as crashed when:
+    - crash_all_running=True: ALL running jobs (server just restarted mid-execution)
+    - Always: pending or running jobs whose created_at is older than _STALE_AFTER
+
+    Returns the number of jobs affected.
+    """
+    cutoff = datetime.now(timezone.utc) - _STALE_AFTER
+    with Session(engine) as session:
+        to_crash: list[Job] = []
+
+        if crash_all_running:
+            to_crash = list(session.exec(
+                select(Job).where(Job.status == JobStatus.running)
+            ).all())
+
+        stale = session.exec(
+            select(Job).where(
+                Job.status.in_([JobStatus.running, JobStatus.pending]),
+                Job.created_at < cutoff,
+            )
+        ).all()
+        seen = {j.id for j in to_crash}
+        to_crash.extend(j for j in stale if j.id not in seen)
+
+        for job in to_crash:
+            job.status = JobStatus.crashed
+            session.add(job)
+        session.commit()
+        return len(to_crash)
+
+
 def archive_old_jobs() -> None:
-    """Move completed/failed jobs older than 24h into the archive tables."""
+    """Move terminal jobs older than 24h into the archive tables."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
     with Session(engine) as session:
         old_jobs = session.exec(
             select(Job).where(
                 Job.created_at < cutoff,
-                Job.status.in_([JobStatus.completed, JobStatus.failed]),
+                Job.status.in_([JobStatus.completed, JobStatus.failed, JobStatus.crashed]),
             )
         ).all()
 
@@ -145,7 +185,7 @@ def cancel_job(job_id: UUID) -> bool:
     """Returns False if the job doesn't exist or is already terminal."""
     with Session(engine) as session:
         job = session.get(Job, job_id)
-        if job is None or job.status in (JobStatus.completed, JobStatus.failed, JobStatus.cancelled):
+        if job is None or job.status in _TERMINAL:
             return False
         job.status = JobStatus.cancelled
         session.add(job)
@@ -158,7 +198,7 @@ def retry_job(job_id: UUID) -> str | None:
     """Creates a new job for the same pipeline. Returns None if original not found or not retryable."""
     with Session(engine) as session:
         job = session.get(Job, job_id)
-        if job is None or job.status not in (JobStatus.failed, JobStatus.cancelled):
+        if job is None or job.status not in (JobStatus.failed, JobStatus.crashed, JobStatus.cancelled):
             return None
         return job.pipeline_name
 
@@ -184,6 +224,7 @@ def list_jobs() -> list[dict]:
                 "id": job.id,
                 "pipeline_name": job.pipeline_name,
                 "status": job.status,
-                "created_at": job.created_at
+                "source": job.source,
+                "created_at": job.created_at,
             } for job in jobs
         ]

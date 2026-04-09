@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit {{ form_data.name }}{% else %}New Pipeline{% endif %} — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/">Pipelines</a>
+  <span>›</span>
+  {% if editing %}
+  <a href="/pipeline/{{ form_data.name }}">{{ form_data.name }}</a>
+  <span>›</span>
+  Edit
+  {% else %}
+  New Pipeline
+  {% endif %}
+</div>
+
+<div class="section">
+  <h1>{% if editing %}EDIT PIPELINE{% else %}NEW PIPELINE{% endif %}</h1>
+
+  {% if errors %}
+  <div class="error-box">
+    {% for err in errors %}<div>• {{ err }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{{ '/pipeline/' + form_data.name + '/edit' if editing else '/pipeline/new' }}">
+
+    <!-- ── identity ──────────────────────────────────────────────── -->
+    <h2>IDENTITY</h2>
+    <div class="form-grid">
+
+      <div class="form-group">
+        <label>Pipeline name <span style="color:var(--r)">*</span></label>
+        {% if editing %}
+        <input type="hidden" name="name" value="{{ form_data.name }}">
+        <input type="text" value="{{ form_data.name }}" disabled>
+        {% else %}
+        <input type="text" name="name" value="{{ form_data.name }}"
+               placeholder="e.g. web-checks" required>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Group</label>
+        {% if editing %}
+        <input type="hidden" name="group" value="{{ form_data.group }}">
+        <input type="text" value="{{ form_data.group }}" disabled>
+        {% else %}
+        <input type="text" name="group" value="{{ form_data.group }}"
+               placeholder="e.g. production">
+        <span class="hint">Pipelines are stored in groups (YAML files)</span>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Cron schedule <span style="color:var(--r)">*</span></label>
+        <input type="text" name="cron" value="{{ form_data.cron }}"
+               placeholder="0 * * * *" required>
+        <span class="hint">Standard 5-field cron expression</span>
+      </div>
+
+      <div class="form-group">
+        <label>Runner <span style="color:var(--r)">*</span></label>
+        <select name="runner">
+          {% for rt in runner_types %}
+          <option value="{{ rt.value }}"
+            {% if form_data.runner == rt.value %}selected{% endif %}>
+            {{ rt.value }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+    </div>
+
+    <!-- ── connectors ────────────────────────────────────────────── -->
+    <h2>CONNECTORS</h2>
+    {% if available_connectors %}
+    <div class="checkbox-group" style="margin-bottom:28px">
+      {% for c in available_connectors %}
+      <label class="checkbox-item">
+        <input type="checkbox" name="connectors" value="{{ c }}"
+               {% if c in form_data.connectors %}checked{% endif %}>
+        <code>{{ c }}</code>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty" style="margin-bottom:28px">No connectors configured yet.</div>
+    {% endif %}
+
+    <!-- ── steps ─────────────────────────────────────────────────── -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+      <h2 style="margin-bottom:0">STEPS</h2>
+      <button type="button" class="btn-sm" onclick="addStep()">+ Add Step</button>
+    </div>
+
+    <div id="steps-list">
+      {% for idx, step in steps %}
+      {% include "_step_row.html" %}
+      {% endfor %}
+    </div>
+
+    {% if not steps %}
+    <div class="empty" id="steps-empty" style="margin-bottom:20px">
+      No steps yet — click <strong>+ Add Step</strong> to begin.
+    </div>
+    {% endif %}
+
+    <!-- ── actions ───────────────────────────────────────────────── -->
+    <div style="display:flex; gap:14px; align-items:center; margin-top:28px">
+      <button type="submit">
+        {% if editing %}✓ Save Changes{% else %}✓ Create Pipeline{% endif %}
+      </button>
+      <a href="{{ '/pipeline/' + form_data.name if editing else '/' }}" class="btn btn-sm"
+         style="background:transparent; color:var(--ink-mid); border-color:var(--border); box-shadow:2px 2px 0 var(--border)">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  const PATTERN_METHODS = ['stdout_regex', 'stdout_contains'];
+  let stepCount = {{ steps | length }};
+
+  function togglePattern(sel, idx) {
+    const pg = document.getElementById('pattern-group-' + idx);
+    if (pg) pg.style.display = PATTERN_METHODS.includes(sel.value) ? '' : 'none';
+  }
+
+  function addStep() {
+    const empty = document.getElementById('steps-empty');
+    if (empty) empty.remove();
+    htmx.ajax('GET', '/step-row?index=' + stepCount, {
+      target: '#steps-list',
+      swap: 'beforeend',
+    });
+    stepCount++;
+  }
+</script>
+{% endblock %}

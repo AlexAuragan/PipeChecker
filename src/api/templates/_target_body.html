@@ -1,0 +1,78 @@
+{# Requires: target_name, t_status, step_results (dict step_id→result), pipeline, columns, edges #}
+<div class="target-header">
+  <strong>{{ target_name }}</strong>
+  <span class="badge {{ status_badge(t_status) }}">{{ t_status }}</span>
+</div>
+
+{# ── per-target graph ──────────────────────────────────────────── #}
+<div class="graph-outer">
+  <div class="graph-container" data-edges='{{ edges }}'>
+    {% for column in columns %}
+    <div class="graph-column">
+      <div class="graph-col-label">Stage {{ loop.index0 }}</div>
+      {% for step in column %}
+      {% set sr = step_results.get(step.id) %}
+      {% if sr %}
+        {% set node_cls   = step_class(sr) %}
+        {% set status_lbl = step_text(sr) %}
+      {% else %}
+        {% set node_cls   = "status-pending" %}
+        {% set status_lbl = "pending" %}
+      {% endif %}
+      <div class="step-node {{ node_cls }}" data-step-id="{{ step.id }}">
+        <div class="step-node-id">{{ step.id }}</div>
+        <div class="step-node-cmd" title="{{ step.exec }}">{{ step.exec }}</div>
+        <div class="step-node-status">{{ status_lbl }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── step accordions ───────────────────────────────────────────── #}
+{% for step in pipeline.pipeline %}
+{% set sr = step_results.get(step.id) %}
+{% if sr %}
+<details class="step-details">
+  <summary>
+    <span class="badge {{ step_badge(sr) }}">{{ step_text(sr) }}</span>
+    <code>{{ step.id }}</code>
+    <span style="color:var(--ink-light); font-size:11px">{{ step.exec | truncate(60) }}</span>
+  </summary>
+  <div class="detail-body">
+    <div class="info-grid">
+      <div class="info-item">
+        <label>Command</label>
+        <span><code>{{ step.exec }}</code></span>
+      </div>
+      <div class="info-item">
+        <label>Check</label>
+        <span><code>{{ step.check_method.value }}</code></span>
+      </div>
+      {% if sr.tried_fix and step.if_failed %}
+      <div class="info-item">
+        <label>Remediation applied</label>
+        <span><code>{{ step.if_failed }}</code></span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if sr.stdout %}
+    <h3>stdout</h3>
+    <pre>{{ sr.stdout }}</pre>
+    {% endif %}
+
+    {% if sr.stderr %}
+    <h3>stderr</h3>
+    <pre>{{ sr.stderr }}</pre>
+    {% endif %}
+
+    {% if not sr.stdout and not sr.stderr %}
+    <p style="color:var(--ink-light); font-size:11px">(no output)</p>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{% endfor %}
+<!-- TODO some test pass with fixed but none of them end up in the "fixed" tab, also we're missing a "crashed" tab -->

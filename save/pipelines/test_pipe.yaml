@@ -1,18 +1,32 @@
 connectors:
-  - proxmox
-runner: proxmox_ct
-cron: "* * * * *"
+- proxmox
+cron: 10 * * * *
 pipelines:
-  - name: File-keeper
-    pipeline:
-      - id: curl-installed
-        exec: which curl
-        check_method: stdout_not_empty
-        if_failed: apt install curl -y
-
-      - id: fk-installed
-        requires:
-          - curl-installed
-        exec: which fk
-        check_method: stdout_not_empty
-        if_failed: curl -sSL https://raw.githubusercontent.com/AlexAuragan/file-keeper/main/install.sh | bash
+- connectors:
+  - proxmox
+  cron: 10 * * * *
+  name: File-keeper
+  pipeline:
+  - check_method: stdout_not_empty
+    check_pattern: null
+    exec: which curl
+    id: curl-installed
+    if_failed: apt install curl -y
+    requires: []
+  - check_method: stdout_not_empty
+    check_pattern: null
+    exec: which fk
+    id: fk-installed
+    if_failed: curl -sSL https://raw.githubusercontent.com/AlexAuragan/file-keeper/main/install.sh
+      | bash
+    requires:
+    - curl-installed
+  - check_method: stdout_not_empty
+    check_pattern: null
+    exec: which uv
+    id: uv-installed
+    if_failed: curl -LsSf https://astral.sh/uv/install.sh | sh
+    requires:
+    - curl-installed
+  runner: proxmox_ct
+runner: proxmox_ct
