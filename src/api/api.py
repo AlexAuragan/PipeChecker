@@ -1,11 +1,10 @@
-import asyncio
+from fastapi import FastAPI
 
 from src.api import utils
 from src.api.routers.connectors import router as connectors_router
-from src.api.routers.pipelines import router as pipelines_router
 from src.api.routers.jobs import router as jobs_router
+from src.api.routers.pipelines import router as pipelines_router
 from src.core.database import init_db
-from fastapi import FastAPI
 
 init_db()
 

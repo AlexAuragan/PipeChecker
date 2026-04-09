@@ -1,6 +1,7 @@
 runner: proxmox_ct
 connectors:
   - proxmox
+cron: 0 10,18 * * *
 pipelines:
   - name: curl
     pipeline:

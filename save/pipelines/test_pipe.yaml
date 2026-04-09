@@ -1,6 +1,7 @@
 connectors:
   - proxmox
 runner: proxmox_ct
+cron: "* * * * *"
 pipelines:
   - name: File-keeper
     pipeline:

@@ -13,6 +13,7 @@ def load_pipeline_config(path: str | Path) -> tuple[list[str],dict[str, pipeline
     raw = yaml.safe_load(Path(path).read_text())
     pipes_raw = raw["pipelines"]
     connectors = raw["connectors"]
+    cron = raw["cron"]
     runner = RunnerType(raw["runner"])
     if not isinstance(pipes_raw, list):
         raise ValueError("Config file must be a YAML list at the `pipelines` level")
@@ -20,6 +21,7 @@ def load_pipeline_config(path: str | Path) -> tuple[list[str],dict[str, pipeline
     for pipe in pipes_raw:
         pipe["connectors"] = connectors
         pipe["runner"] = runner
+        pipe["cron"] = cron
         pipes.append(pipeline.Pipeline.model_validate(pipe))
     return connectors, {p.name: p for p in pipes}
 
@@ -47,8 +49,9 @@ def save_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
         raw.setdefault("pipelines", [])
         raw.setdefault("connectors", [])
         raw.setdefault("runner", pipe.runner.value)
+        raw.setdefault("cron", pipe.cron)
     else:
-        raw = {"runner": pipe.runner.value, "connectors": [], "pipelines": []}
+        raw = {"runner": pipe.runner.value, "connectors": [], "pipelines": [], "cron": pipe.cron}
     raw["pipelines"].append(pipe.model_dump(mode="json"))
     with open(path, "w") as f:
         yaml.dump(raw, f, default_flow_style=False, allow_unicode=True)

@@ -1,6 +1,6 @@
 [project]
 name = "pipechecker"
-version = "0.1.0"
+version = "0.0.2"
 description = "Service to manage devops pipelines"
 requires-python = ">=3.14"
 dependencies = [
@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn>=0.43.0",
     "sqlmodel>=0.0.22",
     "watchfiles>=1.1.1",
+    "apscheduler>=3.11.2",
 ]
 
 [dependency-groups]

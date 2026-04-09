@@ -80,11 +80,12 @@ pipeline:
    * [ ] Websites
    * [ ] Github / gitlab / gitea
  * [ ] Runners
+   * [x] Server side cron for all pipelines
    * [x] Proxmox
    * [ ] Machine
    * [ ] Website
  * [x] Run loop
- * [ ] Run history
+ * [x] Run history
  * [ ] API + service
    * [x] Connectors API
    * [x] Pipelines API

@@ -46,6 +46,7 @@ def _pipeline(name="my-pipe", steps=None, connectors=None, runner="proxmox_ct"):
         "pipeline": steps or [_step()],
         "connectors": connectors or [],
         "runner": runner,
+        "cron": "0 0 * * *"
     }
 
 
@@ -148,9 +149,8 @@ class TestCreatePipeline:
 class TestReplacePipeline:
     def test_replace(self, client):
         new_step = _step("replaced-step", exec_cmd="which python3")
-        body = {"name": "curl", "pipeline": [new_step], "connectors": ["proxmox"], "runner": "proxmox_ct"}
+        body = {"name": "curl", "pipeline": [new_step], "connectors": ["proxmox"], "runner": "proxmox_ct", "cron": "0 0 * * *"}
         r = client.put(f"{PREFIX}/curl", json=body)
-        print(r.content)
         assert r.status_code == 200
         step_ids = [s["id"] for s in r.json()["pipeline"]]
         assert step_ids == ["replaced-step"]
@@ -190,6 +190,7 @@ class TestAddStep:
     def test_add_step(self, client):
         new = _step("extra-step", exec_cmd="which git")
         r = client.post(f"{PREFIX}/curl/steps", json=new)
+        print(r.content)
         assert r.status_code == 200
         ids = [s["id"] for s in r.json()["pipeline"]]
         assert "curl-installed" in ids
@@ -198,11 +199,11 @@ class TestAddStep:
     def test_add_step_with_valid_requires(self, client):
         new = _step("depends-on-curl", requires=["curl-installed"])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
+        print(r.content)
         assert r.status_code == 200
 
     def test_add_duplicate_id_rejected(self, client):
         r = client.post(f"{PREFIX}/curl/steps", json=_step("curl-installed"))
-        print(r.content)
         assert r.status_code == 422
 
     def test_add_step_unknown_requires_rejected(self, client):
@@ -223,12 +224,14 @@ class TestEditStep:
     def test_edit_exec(self, client):
         patch = {"exec": "which curl2"}
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json=patch)
+        print(r.content)
         assert r.status_code == 200
         step = next(s for s in r.json()["pipeline"] if s["id"] == "curl-installed")
         assert step["exec"] == "which curl2"
 
     def test_edit_empty_patch_is_noop(self, client):
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json={})
+        print(r.content)
         assert r.status_code == 200
         step = next(s for s in r.json()["pipeline"] if s["id"] == "curl-installed")
         assert step["exec"] == "which curl"
@@ -257,6 +260,7 @@ class TestRemoveStep:
         # pipeline stays valid (min_length=1) after removal
         client.post(f"{PREFIX}/File-keeper/steps", json=_step("extra"))
         r = client.delete(f"{PREFIX}/File-keeper/steps/extra")
+        print(r.content)
         assert r.status_code == 200
         ids = [s["id"] for s in r.json()["pipeline"]]
         assert "extra" not in ids
@@ -279,6 +283,7 @@ class TestRemoveStep:
         # Add a step that depends on curl-installed, then try to delete curl-installed
         client.post(f"{PREFIX}/curl/steps", json=_step("needs-curl", requires=["curl-installed"]))
         r = client.delete(f"{PREFIX}/curl/steps/curl-installed")
+        print(r.content)
         assert r.status_code == 409
         detail = r.json()["detail"]
         # Detail should be a list of readable messages, not raw pydantic noise

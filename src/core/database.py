@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID, uuid4
 
+from pydantic import model_validator
 from sqlmodel import SQLModel, Field, Relationship, create_engine
 
 from src import config
@@ -18,7 +19,7 @@ class JobStatus(str, Enum):
 
 class Job(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    pipeline_name: str
+    pipeline_name: str | None = None
     status: JobStatus = JobStatus.pending
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -26,6 +27,12 @@ class Job(SQLModel, table=True):
         back_populates="job",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+    @model_validator(mode='after')
+    def set_default_pipeline_name(self) -> 'Job':
+        if self.pipeline_name is None:
+            self.pipeline_name = str(self.id)
+        return self
 
 
 class LivePipelineResult(SQLModel, table=True):

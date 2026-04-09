@@ -121,7 +121,7 @@ def _execute_helper(
     client.load_system_host_keys()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        client.connect(host, username=user)
+        client.connect(host, username=user, timeout=60)
         _, stdout, stderr = client.exec_command(exec, timeout=timeout
         )
         stderr_str = stderr.read().decode()

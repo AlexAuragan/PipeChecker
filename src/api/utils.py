@@ -2,13 +2,39 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Tuple
 
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Request, HTTPException, status
 from watchfiles import awatch
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src import config
 from src.classes.connectors import Manager, Connector
 from src.classes.pipeline import Pipeline
 from src.core import storage
+
+scheduler = AsyncIOScheduler()
+
+
+def make_scheduled_job(app: FastAPI, pipe: Pipeline):
+    async def job():
+        manager = app.state.manager
+        if manager is None:
+            print(f"Skipping {pipe.name}: manager not ready")
+            return
+        job_id = jobs.create_job(pipeline_name=pipe.name)
+
+        await execute_job(job_id, pipe.name, manager)
+
+    return job
+
+
+async def initial_load(app):
+    try:
+        app.state.manager = await asyncio.to_thread(load_and_init)
+        app.state.ready = True
+        print("Connectors loaded")
+    except Exception as e:
+        print(f"Failed to load connectors: {e}")
 
 
 @asynccontextmanager
@@ -16,19 +42,20 @@ async def lifespan(app: FastAPI):
     app.state.manager = None
     app.state.ready = False
 
-    async def initial_load():
-        try:
-            app.state.manager = await asyncio.to_thread(load_and_init)
-            app.state.ready = True
-            print("Connectors loaded")
-        except Exception as e:
-            print(f"Failed to load connectors: {e}")
-
-    load_task = asyncio.create_task(initial_load())
+    load_task = asyncio.create_task(initial_load(app))  # pass app
     watcher_task = asyncio.create_task(watch_config(app))
     archive_task = asyncio.create_task(_archive_loop())
 
-    yield  # server starts accepting connections immediately
+    for group_pipes in storage.load_pipelines().values():
+        for pipe in group_pipes.values():
+            scheduler.add_job(
+                make_scheduled_job(app, pipe),
+                CronTrigger.from_crontab(pipe.cron),
+                id=pipe.name,
+            )
+    scheduler.start()
+
+    yield  # ← single yield
 
     load_task.cancel()
     watcher_task.cancel()
@@ -38,7 +65,7 @@ async def lifespan(app: FastAPI):
             await task
         except asyncio.CancelledError:
             pass
-
+    scheduler.shutdown()
 
 def load_and_init() -> Manager:
     m = storage.load_manager()
@@ -116,7 +143,9 @@ from src.core import jobs, run
 from src.core.database import JobStatus
 from uuid import UUID
 
+
 async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> None:
+    print(f"running job {job_id} on pipeline {pipeline_name}")
     jobs.set_job_status(job_id, JobStatus.running)
     try:
         pipelines = load_all_pipelines()

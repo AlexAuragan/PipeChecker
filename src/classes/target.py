@@ -1,9 +1,10 @@
 from abc import abstractmethod
 from ipaddress import IPv4Address
 from dataclasses import dataclass
+from abc import ABC
 
 @dataclass
-class Target:
+class Target(ABC):
     @abstractmethod
     def id(self) -> str:
         pass

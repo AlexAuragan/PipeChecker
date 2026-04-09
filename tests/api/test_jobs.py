@@ -74,7 +74,7 @@ def clear_cancelled():
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status=JobStatus.pending) -> UUID:
+def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status=type[JobStatus]) -> UUID:
     """Insert a job directly into the DB, bypassing the API."""
     with Session(db_engine) as session:
         job = Job(pipeline_name=pipeline_name, status=status)
@@ -228,7 +228,9 @@ class TestRetryJob:
 
     def test_retry_pending_job_returns_409(self, client, db_engine):
         job_id = _insert_job(db_engine, status=JobStatus.pending)
-        assert client.post(f"{PREFIX}/{job_id}/retry").status_code == 409
+        r = client.post(f"{PREFIX}/{job_id}/retry")
+        print(r.content)
+        assert r.status_code == 409
 
     def test_retry_nonexistent_returns_409(self, client):
         assert client.post(f"{PREFIX}/{uuid4()}/retry").status_code == 409

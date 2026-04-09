@@ -48,7 +48,7 @@ class PCTRunner(Runner):
         command = step.if_failed if if_failed else step.exec
         stdout, stderr, exit_code = utils.execute_on_ct(self.target, command, return_error=True)
 
-        success: bool
+        success = None
         match step.check_method:
             case p.CheckMethod.exit_code:
                 success = not bool(exit_code)

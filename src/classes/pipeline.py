@@ -52,6 +52,7 @@ class Pipeline(BaseModel):
     pipeline: Annotated[list[PipelineStep], Field(min_length=1)]
     connectors: list[str] = []
     runner: runner.RunnerType
+    cron: str
 
     @model_validator(mode="after")
     def validate_requires(self) -> Pipeline:

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -57,7 +56,7 @@ def start_pipeline(
     group: Annotated[str | None, Query()] = None,
 ):
     utils.get_pipeline_or_404(name, group)
-    job_id = jobs.create_job(name)
+    job_id = jobs.create_job(pipeline_name=name)
     background_tasks.add_task(utils.execute_job, job_id, name, manager)
     return JobCreatedResponse(job_id=job_id)
 
@@ -90,6 +89,6 @@ def retry_job(
     pipeline_name = jobs.retry_job(job_id)
     if pipeline_name is None:
         raise HTTPException(status_code=409, detail="Job is not retryable (must be failed or cancelled).")
-    new_job_id = jobs.create_job(pipeline_name)
+    new_job_id = jobs.create_job(pipeline_name=pipeline_name)
     background_tasks.add_task(utils.execute_job, new_job_id, pipeline_name, manager)
     return JobCreatedResponse(job_id=new_job_id)

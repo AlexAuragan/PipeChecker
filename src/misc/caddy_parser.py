@@ -1,5 +1,4 @@
 import re
-from typing import Any
 
 
 def tokenize(text: str) -> list[str]:

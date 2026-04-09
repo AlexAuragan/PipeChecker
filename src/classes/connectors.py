@@ -3,16 +3,16 @@ from enum import Enum
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
+from typing import Literal
 
-from typing import override, Literal
-
+import yaml
 from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, model_validator
 
 from src import config
 from src.classes import utils, target
 from src.misc.caddy_parser import parse_caddyfile
 from src.misc.simple_parsers import parse_table, pct_config_parser
-import yaml
+
 
 class ConnectorType(str, Enum):
     proxmox = "Proxmox"
@@ -60,7 +60,7 @@ class Manager:
         for conn in self:
             conn.load_targets()
 
-class Connector(BaseModel):
+class Connector(BaseModel, ABC):
     """
     Used to extract list of Target from various configs
     """

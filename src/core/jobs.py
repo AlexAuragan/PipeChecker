@@ -17,9 +17,9 @@ def is_cancelled(job_id: UUID) -> bool:
     return job_id in _cancelled
 
 
-def create_job(pipeline_name: str) -> UUID:
+def create_job(uuid: UUID = None, pipeline_name: str = None) -> UUID:
     with Session(engine) as session:
-        job = Job(pipeline_name=pipeline_name)
+        job = Job(pipeline_name=pipeline_name, uuid=uuid)
         session.add(job)
         session.commit()
         session.refresh(job)
@@ -154,7 +154,7 @@ def cancel_job(job_id: UUID) -> bool:
     return True
 
 
-def retry_job(job_id: UUID) -> UUID | None:
+def retry_job(job_id: UUID) -> str | None:
     """Creates a new job for the same pipeline. Returns None if original not found or not retryable."""
     with Session(engine) as session:
         job = session.get(Job, job_id)
