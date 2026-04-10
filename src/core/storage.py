@@ -6,22 +6,17 @@ import yaml
 from src import config
 from src.classes import pipeline
 from src.classes.connectors import Manager, Connector
-from src.classes.runner import RunnerType
 
 
 def load_pipeline_config(path: str | Path) -> tuple[list[str],dict[str, pipeline.Pipeline]]:
     raw = yaml.safe_load(Path(path).read_text())
     pipes_raw = raw["pipelines"]
     connectors = raw["connectors"]
-    cron = raw["cron"]
-    runner = RunnerType(raw["runner"])
     if not isinstance(pipes_raw, list):
         raise ValueError("Config file must be a YAML list at the `pipelines` level")
     pipes = []
     for pipe in pipes_raw:
         pipe["connectors"] = connectors
-        pipe["runner"] = runner
-        pipe["cron"] = cron
         pipes.append(pipeline.Pipeline.model_validate(pipe))
     return connectors, {p.name: p for p in pipes}
 
@@ -48,12 +43,12 @@ def save_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
         raw = yaml.safe_load(path.read_text())
         raw.setdefault("pipelines", [])
         raw.setdefault("connectors", [])
-        raw.setdefault("runner", pipe.runner.value)
-        raw.setdefault("cron", pipe.cron)
     else:
-        raw = {"runner": pipe.runner.value, "connectors": pipe.connectors, "cron": pipe.cron, "pipelines": []}
+        raw = {"connectors": pipe.connectors, "pipelines": []}
     pipe_dict = {
         "name": pipe.name,
+        "runner": pipe.runner.value,
+        "cron": pipe.cron,
         "pipeline": [s.model_dump(mode="json") for s in pipe.pipeline],
     }
     raw["pipelines"].append(pipe_dict)
@@ -64,8 +59,9 @@ def update_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
     group = group.split(".")[0]
     path = config.PIPELINE_FOLDER / f"{group}.yaml"
     raw = yaml.safe_load(path.read_text())
+    pipe_dict = pipe.model_dump(mode="json", exclude={"connectors"})
     raw["pipelines"] = [
-      pipe.model_dump(mode="json") if p["name"] == pipe.name else p
+      pipe_dict if p["name"] == pipe.name else p
       for p in raw["pipelines"]
     ]
     with open(path, "w") as f:

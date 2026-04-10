@@ -1,11 +1,9 @@
 connectors:
 - proxmox
-cron: 10 * * * *
 pipelines:
-- connectors:
-  - proxmox
-  cron: 10 * * * *
-  name: File-keeper
+- name: File-keeper
+  runner: proxmox_ct
+  cron: 0 10,18 * * *
   pipeline:
   - check_method: stdout_not_empty
     check_pattern: null
@@ -28,5 +26,3 @@ pipelines:
     if_failed: curl -LsSf https://astral.sh/uv/install.sh | sh
     requires:
     - curl-installed
-  runner: proxmox_ct
-runner: proxmox_ct

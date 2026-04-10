@@ -1,16 +1,17 @@
-runner: proxmox_ct
 connectors:
   - proxmox
-cron: 0 10,18 * * *
 pipelines:
   - name: curl
+    runner: proxmox_ct
+    cron: 0 10,18 * * *
     pipeline:
       - id: curl-installed
         exec: which curl
         check_method: stdout_not_empty
         if_failed: apt install curl -y
   - name: File-keeper
-    requires: curl
+    runner: proxmox_ct
+    cron: 0 10,18 * * *
     pipeline:
       - id: fk-installed
         exec: which fk
