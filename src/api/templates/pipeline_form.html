@@ -130,14 +130,47 @@
     if (pg) pg.style.display = PATTERN_METHODS.includes(sel.value) ? '' : 'none';
   }
 
+  function updateRequiresGroups() {
+    // Collect all current (non-empty) step IDs from the DOM
+    const allSteps = [...document.querySelectorAll('[id^="step-row-"]')].map(row => {
+      const idx = row.id.replace('step-row-', '');
+      return { idx, id: (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim() };
+    }).filter(s => s.id);
+
+    allSteps.forEach(({ idx, id }) => {
+      const group = document.getElementById('step-requires-group-' + idx);
+      if (!group) return;
+
+      // Preserve currently checked IDs before rebuilding
+      const checked = new Set(
+        [...group.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value)
+      );
+
+      const others = allSteps.filter(s => s.id !== id);
+      group.innerHTML = others.length
+        ? others.map(s => `
+            <label class="checkbox-item" data-step-id="${s.id}">
+              <input type="checkbox" name="step_requires_${idx}" value="${s.id}"
+                     ${checked.has(s.id) ? 'checked' : ''}>
+              <code>${s.id}</code>
+            </label>`).join('')
+        : '<span class="hint">No other steps defined yet.</span>';
+    });
+  }
+
   function addStep() {
     const empty = document.getElementById('steps-empty');
     if (empty) empty.remove();
-    htmx.ajax('GET', '/step-row?index=' + stepCount, {
+    const ids = [...document.querySelectorAll('[id^="step-row-"]')]
+      .map(r => { const i = r.id.replace('step-row-', ''); return (r.querySelector(`[name="step_id_${i}"]`)?.value || '').trim(); })
+      .filter(Boolean).join(',');
+    htmx.ajax('GET', '/step-row?index=' + stepCount + '&steps=' + encodeURIComponent(ids), {
       target: '#steps-list',
       swap: 'beforeend',
-    });
+    }).then(() => updateRequiresGroups());
     stepCount++;
   }
+
+  document.addEventListener('DOMContentLoaded', updateRequiresGroups);
 </script>
 {% endblock %}

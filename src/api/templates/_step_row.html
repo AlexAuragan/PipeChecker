@@ -2,7 +2,7 @@
   <div class="step-row-header">
     <span class="step-row-label">Step {{ idx + 1 }}</span>
     <button type="button" class="btn-remove btn-sm"
-            onclick="this.closest('.step-row').remove()">✕ Remove</button>
+            onclick="this.closest('.step-row').remove(); updateRequiresGroups()">✕ Remove</button>
   </div>
 
   <div class="form-grid">
@@ -10,7 +10,8 @@
       <label>ID <span style="color:var(--r)">*</span></label>
       <input type="text" name="step_id_{{ idx }}"
              value="{{ step.id if step else '' }}"
-             placeholder="e.g. check-nginx" required>
+             placeholder="e.g. check-nginx" required
+             oninput="updateRequiresGroups()">
     </div>
     <div class="form-group" style="grid-column: span 2">
       <label>Command <span style="color:var(--r)">*</span></label>
@@ -43,12 +44,26 @@
              value="{{ step.if_failed if step else '' }}"
              placeholder="optional fix command">
     </div>
-    <div class="form-group">
-      <label>Requires</label> <!-- TODO turn this into a select box -->
-      <input type="text" name="step_requires_{{ idx }}"
-             value="{{ step.requires if step else '' }}"
-             placeholder="step-id-1, step-id-2">
-      <span class="hint">Comma-separated step IDs</span>
+    <div class="form-group" style="grid-column: span 3">
+      <label>Requires</label>
+      {% set requires_list = step.requires if step else [] %}
+      {% set own_id = step.id if step else '' %}
+      {% set others = all_step_ids | reject("equalto", own_id) | list %}
+      {% if others %}
+      <div class="checkbox-group" id="step-requires-group-{{ idx }}">
+        {% for sid in others %}
+        <label class="checkbox-item" data-step-id="{{ sid }}">
+          <input type="checkbox" name="step_requires_{{ idx }}" value="{{ sid }}"
+                 {% if sid in requires_list %}checked{% endif %}>
+          <code>{{ sid }}</code>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="checkbox-group" id="step-requires-group-{{ idx }}">
+        <span class="hint">No other steps defined yet.</span>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

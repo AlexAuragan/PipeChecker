@@ -51,8 +51,12 @@ def save_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
         raw.setdefault("runner", pipe.runner.value)
         raw.setdefault("cron", pipe.cron)
     else:
-        raw = {"runner": pipe.runner.value, "connectors": [], "pipelines": [], "cron": pipe.cron}
-    raw["pipelines"].append(pipe.model_dump(mode="json"))
+        raw = {"runner": pipe.runner.value, "connectors": pipe.connectors, "cron": pipe.cron, "pipelines": []}
+    pipe_dict = {
+        "name": pipe.name,
+        "pipeline": [s.model_dump(mode="json") for s in pipe.pipeline],
+    }
+    raw["pipelines"].append(pipe_dict)
     with open(path, "w") as f:
         yaml.dump(raw, f, default_flow_style=False, allow_unicode=True)
 

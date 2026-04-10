@@ -22,8 +22,7 @@ class PipelineResult:
 
     @property
     def status(self) -> Literal["green", "orange", "red"]:
-        if all(s.success for s in self.steps.values() if not s.skipped):
-            return "green"
-        if any(s.tried_fix for s in self.steps.values()):
-            return "orange"
+        all_success = all(s.success for s in self.steps.values() if not s.skipped)
+        if all_success:
+            return "orange" if any(s.tried_fix for s in self.steps.values()) else "green"
         return "red"

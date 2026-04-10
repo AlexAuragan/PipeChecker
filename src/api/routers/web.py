@@ -119,8 +119,17 @@ def _steps_from_form(form) -> list[tuple[int, dict]]:
         "check_method": form.get(f"step_check_method_{i}", "exit_code"),
         "check_pattern":form.get(f"step_check_pattern_{i}", "") or "",
         "if_failed":    form.get(f"step_if_failed_{i}", "") or "",
-        "requires":     form.get(f"step_requires_{i}", "") or "",
+        "requires":     [v for k, v in form.multi_items() if k == f"step_requires_{i}"],
     }) for i in indices]
+
+
+def _step_ids_from_form(form) -> list[str]:
+    indices = sorted({
+        int(k[len("step_id_"):])
+        for k in form.keys()
+        if k.startswith("step_id_")
+    })
+    return [sid for i in indices if (sid := (form.get(f"step_id_{i}") or "").strip())]
 
 
 def _parse_pipeline_form(form) -> tuple[str, Pipeline]:
@@ -140,14 +149,13 @@ def _parse_pipeline_form(form) -> tuple[str, Pipeline]:
         sid = (form.get(f"step_id_{i}") or "").strip()
         if not sid:
             continue
-        requires_raw = (form.get(f"step_requires_{i}") or "").strip()
         steps.append({
             "id":            sid,
             "exec":          (form.get(f"step_exec_{i}") or "").strip(),
             "check_method":  form.get(f"step_check_method_{i}") or "exit_code",
             "check_pattern": (form.get(f"step_check_pattern_{i}") or "").strip() or None,
             "if_failed":     (form.get(f"step_if_failed_{i}") or "").strip() or None,
-            "requires":      [r.strip() for r in requires_raw.split(",") if r.strip()],
+            "requires":      [v for k, v in form.multi_items() if k == f"step_requires_{i}"],
         })
     return group, Pipeline.model_validate({
         "name": name, "cron": cron, "runner": runner_val,
@@ -186,6 +194,7 @@ def new_pipeline_page(request: Request):
             "runner": RunnerType.proxmox_ct.value, "connectors": [],
         },
         "steps": [],
+        "all_step_ids": [],
         "available_connectors": _available_connectors(),
         "errors": None,
     })
@@ -198,6 +207,7 @@ async def create_pipeline(request: Request):
         group, pipeline = _parse_pipeline_form(form)
     except (ValidationError, ValueError) as exc:
         errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        steps = _steps_from_form(form)
         return templates.TemplateResponse(request=request, name="pipeline_form.html", status_code=422, context={
             **_FORM_BASE,
             "request": request,
@@ -207,7 +217,8 @@ async def create_pipeline(request: Request):
                 "cron": form.get("cron", ""), "runner": form.get("runner", ""),
                 "connectors": [v for k, v in form.multi_items() if k == "connectors"],
             },
-            "steps": _steps_from_form(form),
+            "steps": steps,
+            "all_step_ids": [s["id"] for _, s in steps if s["id"]],
             "available_connectors": _available_connectors(),
             "errors": errors,
         })
@@ -224,7 +235,7 @@ def edit_pipeline_page(request: Request, name: str):
         "check_method":  s.check_method.value,
         "check_pattern": s.check_pattern or "",
         "if_failed":     s.if_failed or "",
-        "requires":      ",".join(s.requires),
+        "requires":      s.requires,
     }) for i, s in enumerate(pipeline.pipeline)]
     return templates.TemplateResponse(request=request, name="pipeline_form.html", context={
         **_FORM_BASE,
@@ -236,6 +247,7 @@ def edit_pipeline_page(request: Request, name: str):
             "connectors": pipeline.connectors,
         },
         "steps": steps,
+        "all_step_ids": [s.id for s in pipeline.pipeline],
         "available_connectors": _available_connectors(),
         "errors": None,
     })
@@ -248,6 +260,7 @@ async def update_pipeline_route(request: Request, name: str):
         group, pipeline = _parse_pipeline_form(form)
     except (ValidationError, ValueError) as exc:
         errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        steps = _steps_from_form(form)
         return templates.TemplateResponse(request=request, name="pipeline_form.html", status_code=422, context={
             **_FORM_BASE,
             "request": request,
@@ -257,7 +270,8 @@ async def update_pipeline_route(request: Request, name: str):
                 "cron": form.get("cron", ""), "runner": form.get("runner", ""),
                 "connectors": [v for k, v in form.multi_items() if k == "connectors"],
             },
-            "steps": _steps_from_form(form),
+            "steps": steps,
+            "all_step_ids": [s["id"] for _, s in steps if s["id"]],
             "available_connectors": _available_connectors(),
             "errors": errors,
         })
@@ -266,12 +280,14 @@ async def update_pipeline_route(request: Request, name: str):
 
 
 @router.get("/step-row", response_class=HTMLResponse)
-def step_row_fragment(request: Request, index: int = 0):
+def step_row_fragment(request: Request, index: int = 0, steps: str = ""):
+    all_step_ids = [s.strip() for s in steps.split(",") if s.strip()]
     return templates.TemplateResponse(request=request, name="_step_row.html", context={
         "request": request,
         "idx": index,
         "step": None,
         "check_methods": list(CheckMethod),
+        "all_step_ids": all_step_ids,
     })
 
 
