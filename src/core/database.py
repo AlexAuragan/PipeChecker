@@ -51,6 +51,7 @@ class LivePipelineResult(SQLModel, table=True):
     target_name: str = ""
     pipeline_name: str
     status: str  # green / orange / red
+    duration: float = 0.0
 
     job: Optional[Job] = Relationship(back_populates="results")
     steps: list["LiveStepResult"] = Relationship(
@@ -68,6 +69,7 @@ class LiveStepResult(SQLModel, table=True):
     stderr: str
     tried_fix: bool
     skipped: bool
+    duration: float = 0.0
 
     pipeline_result: Optional[LivePipelineResult] = Relationship(back_populates="steps")
 
@@ -79,6 +81,7 @@ class ArchivedRun(SQLModel, table=True):
     ran_at: datetime
     status: str  # green / orange / red
     changed: bool
+    duration: float = 0.0
 
     steps: list["ArchivedStepResult"] = Relationship(
         back_populates="run",
@@ -95,6 +98,7 @@ class ArchivedStepResult(SQLModel, table=True):
     stderr: str
     tried_fix: bool
     skipped: bool
+    duration: float = 0.0
 
     run: Optional[ArchivedRun] = Relationship(back_populates="steps")
 
@@ -114,4 +118,22 @@ def init_db():
         lpr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")]
         if "target_name" not in lpr_cols:
             conn.execute(text("ALTER TABLE livepipelineresult ADD COLUMN target_name VARCHAR NOT NULL DEFAULT ''"))
+            conn.commit()
+        if "duration" not in lpr_cols:
+            conn.execute(text("ALTER TABLE livepipelineresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
+            conn.commit()
+
+        ar_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedrun")]
+        if "duration" not in ar_cols:
+            conn.execute(text("ALTER TABLE archivedrun ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
+            conn.commit()
+
+        lsr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livestepresult")]
+        if "duration" not in lsr_cols:
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
+            conn.commit()
+
+        asr_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedstepresult")]
+        if "duration" not in asr_cols:
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()

@@ -13,12 +13,14 @@ class StepResult:
     stderr: str
     tried_fix: bool
     skipped: bool
+    duration: float
 
 @dataclass
 class PipelineResult:
     target: Target
     pipeline_name: str
     steps: dict[str, StepResult]
+    duration: float
 
     @property
     def status(self) -> Literal["green", "orange", "red"]:

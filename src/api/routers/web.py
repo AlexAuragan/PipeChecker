@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from src.api import utils
+from src.classes import connectors as _connectors_module
+from src.classes.connectors import ConnectorType, Connector
 from src.classes.pipeline import Pipeline, PipelineStep, CheckMethod
 from src.classes.runner import RunnerType
 from src.core import jobs, storage as _storage
@@ -91,12 +93,22 @@ def _source_badge(source) -> str:
     return {"manual": "badge-gray", "cron": "badge-blue", "event": "badge-orange"}.get(s, "badge-gray")
 
 
+def _fmt_duration(seconds: float) -> str:
+    if seconds < 1:
+        return f"{seconds * 1000:.0f}ms"
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m {s}s"
+
+
 templates.env.globals.update(
     status_badge=_status_badge,
     source_badge=_source_badge,
     step_class=_step_class,
     step_badge=_step_badge,
     step_text=_step_text,
+    fmt_duration=_fmt_duration,
 )
 
 
@@ -161,6 +173,30 @@ def _parse_pipeline_form(form) -> tuple[str, Pipeline]:
         "name": name, "cron": cron, "runner": runner_val,
         "connectors": connector_list, "pipeline": steps,
     })
+
+
+def _parse_connector_form(form) -> Connector:
+    name      = (form.get("name") or "").strip()
+    type_val  = (form.get("type") or "").strip()
+    config_ssh  = [v.strip() for k, v in form.multi_items() if k == "config_ssh"  and v.strip()]
+    config_url  = [v.strip() for k, v in form.multi_items() if k == "config_url"  and v.strip()]
+    config_path = [v.strip() for k, v in form.multi_items() if k == "config_path" and v.strip()]
+    connector_type = ConnectorType(type_val)
+    cls = _connectors_module[connector_type.value]
+    return cls.model_validate({
+        "name": name, "config_ssh": config_ssh,
+        "config_url": config_url, "config_path": config_path,
+    })
+
+
+def _connector_form_data(form, name_override: str | None = None) -> dict:
+    return {
+        "name":        name_override or form.get("name", ""),
+        "type":        form.get("type", ConnectorType.proxmox.value),
+        "config_ssh":  [v for k, v in form.multi_items() if k == "config_ssh"],
+        "config_path": [v for k, v in form.multi_items() if k == "config_path"],
+        "config_url":  [v for k, v in form.multi_items() if k == "config_url"],
+    }
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
@@ -308,6 +344,111 @@ def pipeline_page(request: Request, name: str):
     })
 
 
+@router.post("/job/{job_id}/delete", response_class=HTMLResponse)
+async def delete_job_route(request: Request, job_id: UUID):
+    if not jobs.delete_job(job_id):
+        raise HTTPException(status_code=409, detail="Job cannot be deleted (not found or still running).")
+    return RedirectResponse("/", status_code=303)
+
+
+@router.post("/pipeline/{name}/delete", response_class=HTMLResponse)
+async def delete_pipeline_route(request: Request, name: str):
+    pipeline, group = utils.get_pipeline_or_404(name, None)
+    _storage.delete_pipeline(name, group)
+    return RedirectResponse("/", status_code=303)
+
+
+@router.get("/connectors", response_class=HTMLResponse)
+def connectors_page(request: Request):
+    manager = _storage.load_manager()
+    return templates.TemplateResponse(request=request, name="connectors.html", context={
+        "request": request,
+        "connectors": list(manager),
+    })
+
+
+@router.get("/connector/new", response_class=HTMLResponse)
+def new_connector_page(request: Request):
+    return templates.TemplateResponse(request=request, name="connector_form.html", context={
+        "request": request,
+        "editing": False,
+        "connector_types": list(ConnectorType),
+        "form_data": {
+            "name": "", "type": ConnectorType.proxmox.value,
+            "config_ssh": [], "config_path": [], "config_url": [],
+        },
+        "errors": None,
+    })
+
+
+@router.post("/connector/new", response_class=HTMLResponse)
+async def create_connector_web(request: Request):
+    form = await request.form()
+    try:
+        connector = _parse_connector_form(form)
+    except (ValidationError, ValueError) as exc:
+        errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        return templates.TemplateResponse(request=request, name="connector_form.html", status_code=422, context={
+            "request": request,
+            "editing": False,
+            "connector_types": list(ConnectorType),
+            "form_data": _connector_form_data(form),
+            "errors": errors,
+        })
+    manager = _storage.load_manager()
+    if connector.name in manager:
+        return templates.TemplateResponse(request=request, name="connector_form.html", status_code=409, context={
+            "request": request,
+            "editing": False,
+            "connector_types": list(ConnectorType),
+            "form_data": _connector_form_data(form),
+            "errors": [f"Connector '{connector.name}' already exists."],
+        })
+    manager.add(connector)
+    _storage.save_manager(manager)
+    return RedirectResponse("/connectors", status_code=303)
+
+
+@router.get("/connector/{name}/edit", response_class=HTMLResponse)
+def edit_connector_page(request: Request, name: str):
+    manager = _storage.load_manager()
+    connector = utils.get_connector_or_404(manager, name)
+    return templates.TemplateResponse(request=request, name="connector_form.html", context={
+        "request": request,
+        "editing": True,
+        "connector_types": list(ConnectorType),
+        "form_data": {
+            "name": connector.name, "type": connector.type.value,
+            "config_ssh": connector.config_ssh,
+            "config_path": connector.config_path,
+            "config_url": connector.config_url,
+        },
+        "errors": None,
+    })
+
+
+@router.post("/connector/{name}/edit", response_class=HTMLResponse)
+async def update_connector_web(request: Request, name: str):
+    form = await request.form()
+    try:
+        connector = _parse_connector_form(form)
+    except (ValidationError, ValueError) as exc:
+        errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        return templates.TemplateResponse(request=request, name="connector_form.html", status_code=422, context={
+            "request": request,
+            "editing": True,
+            "connector_types": list(ConnectorType),
+            "form_data": _connector_form_data(form, name_override=name),
+            "errors": errors,
+        })
+    manager = _storage.load_manager()
+    utils.get_connector_or_404(manager, name)
+    manager.remove(name)
+    manager.add(connector)
+    _storage.save_manager(manager)
+    return RedirectResponse("/connectors", status_code=303)
+
+
 @router.get("/job/{job_id}", response_class=HTMLResponse)
 def job_page(request: Request, job_id: UUID):
     job = jobs.get_job(job_id)
@@ -323,6 +464,7 @@ def job_page(request: Request, job_id: UUID):
             "target_id":   result["target_id"],
             "target_name": result["target_name"],
             "t_status":    result["status"],
+            "duration":    result["duration"],
             "step_results": {s["step_id"]: s for s in result["steps"]},
         }
         for result in job["results"]

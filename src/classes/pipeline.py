@@ -12,15 +12,16 @@ class CheckMethod(str, Enum):
     stderr_empty = "stderr_empty"
     stdout_contains = "stdout_contains"
     stdout_not_empty = "stdout_not_empty"
+    finish_in_less_than = "finish_in_less_than"
 
     def requires_pattern(self):
-        return self in (CheckMethod.stdout_contains, CheckMethod.stdout_regex)
+        return self in (CheckMethod.stdout_contains, CheckMethod.stdout_regex, CheckMethod.finish_in_less_than)
 
 class PipelineStep(BaseModel):
     id: str
     exec: str
     check_method: CheckMethod
-    check_pattern: str | None = None
+    check_pattern: str | float | int | None = None
     if_failed: str | None
     requires: list[str] = []
 
@@ -38,6 +39,10 @@ class PipelineStep(BaseModel):
             raise ValueError(
                 f"Step own id cannot be in requires."
             )
+
+        if self.check_method == CheckMethod.finish_in_less_than:
+            self.check_pattern = float(self.check_pattern)
+
         return self
 
     @field_validator("id", "exec")

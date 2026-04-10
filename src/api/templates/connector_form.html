@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit {{ form_data.name }}{% else %}New Connector{% endif %} — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/connectors">Connectors</a>
+  <span>›</span>
+  {% if editing %}
+  {{ form_data.name }}
+  <span>›</span>
+  Edit
+  {% else %}
+  New Connector
+  {% endif %}
+</div>
+
+<div class="section">
+  <h1>{% if editing %}EDIT CONNECTOR{% else %}NEW CONNECTOR{% endif %}</h1>
+
+  {% if errors %}
+  <div class="error-box">
+    {% for err in errors %}<div>• {{ err }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{{ '/connector/' + form_data.name + '/edit' if editing else '/connector/new' }}">
+
+    <!-- ── identity ──────────────────────────────────────────────── -->
+    <h2>IDENTITY</h2>
+    <div class="form-grid">
+
+      <div class="form-group">
+        <label>Connector name <span style="color:var(--r)">*</span></label>
+        {% if editing %}
+        <input type="hidden" name="name" value="{{ form_data.name }}">
+        <input type="text" value="{{ form_data.name }}" disabled>
+        {% else %}
+        <input type="text" name="name" value="{{ form_data.name }}"
+               placeholder="e.g. my-proxmox" required>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Type <span style="color:var(--r)">*</span></label>
+        {% if editing %}
+        <input type="hidden" name="type" value="{{ form_data.type }}">
+        <input type="text" value="{{ form_data.type }}" disabled>
+        {% else %}
+        <select name="type" id="connector-type" onchange="onTypeChange()">
+          {% for t in connector_types %}
+          <option value="{{ t.value }}"
+            {% if form_data.type == t.value %}selected{% endif %}>
+            {{ t.value }}
+          </option>
+          {% endfor %}
+        </select>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- ── ssh hosts ─────────────────────────────────────────────── -->
+    <h2>SSH HOSTS</h2>
+    <div id="ssh-list">
+      {% for val in form_data.config_ssh %}
+      <div class="config-row">
+        <input type="text" name="config_ssh" value="{{ val }}" placeholder="user@host">
+        <button type="button" class="btn-sm btn-remove" onclick="removeRow(this, 'ssh-list', 'ssh-empty')">✕ Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="ssh-empty" class="hint" style="margin-bottom:10px{% if form_data.config_ssh %};display:none{% endif %}">
+      No SSH hosts added yet.
+    </div>
+    <button type="button" class="btn-sm" onclick="addRow('ssh-list', 'config_ssh', 'user@host', 'ssh-empty')"
+            style="margin-bottom:28px">+ Add SSH Host</button>
+
+    <!-- ── config paths ──────────────────────────────────────────── -->
+    <div id="path-section">
+      <h2>CONFIG PATHS</h2>
+      <div id="path-list">
+        {% for val in form_data.config_path %}
+        <div class="config-row">
+          <input type="text" name="config_path" value="{{ val }}" placeholder="/etc/caddy/Caddyfile">
+          <button type="button" class="btn-sm btn-remove" onclick="removeRow(this, 'path-list', 'path-empty')">✕ Remove</button>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="path-empty" class="hint" style="margin-bottom:10px{% if form_data.config_path %};display:none{% endif %}">
+        No paths added yet.
+      </div>
+      <button type="button" class="btn-sm" onclick="addRow('path-list', 'config_path', '/etc/caddy/Caddyfile', 'path-empty')"
+              style="margin-bottom:28px">+ Add Path</button>
+    </div>
+
+    <!-- ── config urls ───────────────────────────────────────────── -->
+    <div id="url-section">
+      <h2>CONFIG URLS</h2>
+      <div id="url-list">
+        {% for val in form_data.config_url %}
+        <div class="config-row">
+          <input type="text" name="config_url" value="{{ val }}" placeholder="http://host/Caddyfile">
+          <button type="button" class="btn-sm btn-remove" onclick="removeRow(this, 'url-list', 'url-empty')">✕ Remove</button>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="url-empty" class="hint" style="margin-bottom:10px{% if form_data.config_url %};display:none{% endif %}">
+        No URLs added yet.
+      </div>
+      <button type="button" class="btn-sm" onclick="addRow('url-list', 'config_url', 'http://host/Caddyfile', 'url-empty')"
+              style="margin-bottom:28px">+ Add URL</button>
+    </div>
+
+    <!-- ── actions ───────────────────────────────────────────────── -->
+    <div style="display:flex; gap:14px; align-items:center; margin-top:28px">
+      <button type="submit">
+        {% if editing %}✓ Save Changes{% else %}✓ Create Connector{% endif %}
+      </button>
+      <a href="/connectors" class="btn btn-sm"
+         style="background:transparent; color:var(--ink-mid); border-color:var(--border); box-shadow:2px 2px 0 var(--border)">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  const CADDY_ONLY_TYPES = ['Caddy'];
+
+  function onTypeChange() {
+    const type = document.getElementById('connector-type').value;
+    const showCaddy = CADDY_ONLY_TYPES.includes(type);
+    document.getElementById('path-section').style.display = showCaddy ? '' : 'none';
+    document.getElementById('url-section').style.display = showCaddy ? '' : 'none';
+  }
+
+  function addRow(listId, fieldName, placeholder, emptyId) {
+    const list = document.getElementById(listId);
+    const empty = document.getElementById(emptyId);
+    if (empty) empty.style.display = 'none';
+    const row = document.createElement('div');
+    row.className = 'config-row';
+    row.innerHTML = `
+      <input type="text" name="${fieldName}" placeholder="${placeholder}">
+      <button type="button" class="btn-sm btn-remove"
+              onclick="removeRow(this, '${listId}', '${emptyId}')">✕ Remove</button>
+    `;
+    list.appendChild(row);
+    row.querySelector('input').focus();
+  }
+
+  function removeRow(btn, listId, emptyId) {
+    btn.closest('.config-row').remove();
+    const list = document.getElementById(listId);
+    const empty = document.getElementById(emptyId);
+    if (empty && list.children.length === 0) empty.style.display = '';
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('connector-type');
+    if (sel) {
+      onTypeChange();
+    } else {
+      // Editing: type is fixed, apply visibility based on current type value
+      const type = '{{ form_data.type }}';
+      const showCaddy = CADDY_ONLY_TYPES.includes(type);
+      document.getElementById('path-section').style.display = showCaddy ? '' : 'none';
+      document.getElementById('url-section').style.display = showCaddy ? '' : 'none';
+    }
+  });
+</script>
+{% endblock %}

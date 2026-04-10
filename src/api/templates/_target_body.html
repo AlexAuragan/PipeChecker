@@ -2,6 +2,7 @@
 <div class="target-header">
   <strong>{{ target_name }}</strong>
   <span class="badge {{ status_badge(t_status) }}">{{ t_status }}</span>
+  {% if duration %}<span style="color:var(--ink-light); font-size:11px; margin-left:auto">{{ fmt_duration(duration) }}</span>{% endif %}
 </div>
 
 {# ── per-target graph ──────────────────────────────────────────── #}
@@ -22,7 +23,7 @@
       <div class="step-node {{ node_cls }}" data-step-id="{{ step.id }}">
         <div class="step-node-id">{{ step.id }}</div>
         <div class="step-node-cmd" title="{{ step.exec }}">{{ step.exec }}</div>
-        <div class="step-node-status">{{ status_lbl }}</div>
+        <div class="step-node-status">{{ status_lbl }}{% if sr and not sr.skipped %} · {{ fmt_duration(sr.duration) }}{% endif %}</div>
       </div>
       {% endfor %}
     </div>
@@ -39,6 +40,7 @@
     <span class="badge {{ step_badge(sr) }}">{{ step_text(sr) }}</span>
     <code>{{ step.id }}</code>
     <span style="color:var(--ink-light); font-size:11px">{{ step.exec | truncate(60) }}</span>
+    {% if not sr.skipped %}<span style="color:var(--ink-light); font-size:11px; margin-left:auto">{{ fmt_duration(sr.duration) }}</span>{% endif %}
   </summary>
   <div class="detail-body">
     <div class="info-grid">
@@ -50,6 +52,12 @@
         <label>Check</label>
         <span><code>{{ step.check_method.value }}</code></span>
       </div>
+      {% if not sr.skipped %}
+      <div class="info-item">
+        <label>Duration</label>
+        <span>{{ fmt_duration(sr.duration) }}</span>
+      </div>
+      {% endif %}
       {% if sr.tried_fix and step.if_failed %}
       <div class="info-item">
         <label>Remediation applied</label>

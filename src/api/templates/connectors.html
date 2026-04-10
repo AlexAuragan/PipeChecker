@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Connectors — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="section">
+  <h1>CONNECTORS <a href="/connector/new" class="btn btn-sm" style="font-size:11px; vertical-align:middle">+ New</a></h1>
+
+  {% if connectors %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>SSH Hosts</th>
+        <th>Paths</th>
+        <th>URLs</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for connector in connectors %}
+      <tr>
+        <td><strong>{{ connector.name }}</strong></td>
+        <td><code>{{ connector.type.value }}</code></td>
+        <td>
+          {% for s in connector.config_ssh %}<code>{{ s }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+          {% if not connector.config_ssh %}<span style="color:var(--ink-light)">—</span>{% endif %}
+        </td>
+        <td>
+          {% for p in connector.config_path %}<code>{{ p }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+          {% if not connector.config_path %}<span style="color:var(--ink-light)">—</span>{% endif %}
+        </td>
+        <td>
+          {% for u in connector.config_url %}<code>{{ u }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+          {% if not connector.config_url %}<span style="color:var(--ink-light)">—</span>{% endif %}
+        </td>
+        <td style="white-space:nowrap">
+          <a href="/connector/{{ connector.name }}/edit" class="btn btn-sm">Edit</a>
+          <button class="btn-sm btn-danger" style="margin-left:8px"
+            onclick="openDeleteDialog('{{ connector.name }}')">
+            Delete
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty">No connectors configured yet. <a href="/connector/new">Add one</a>.</div>
+  {% endif %}
+</div>
+
+<dialog id="delete-connector-dialog" class="confirm-dialog">
+  <p style="font-weight:700; font-size:15px; margin-bottom:8px">Delete <code id="delete-connector-name"></code>?</p>
+  <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">This cannot be undone. Any pipelines using this connector will break.</p>
+  <div style="display:flex; gap:12px; justify-content:flex-end">
+    <button type="button" class="btn-sm" onclick="document.getElementById('delete-connector-dialog').close()">Cancel</button>
+    <button type="button" class="btn-danger btn-sm" id="delete-connector-confirm">Delete</button>
+  </div>
+</dialog>
+
+<script>
+function openDeleteDialog(name) {
+  document.getElementById('delete-connector-name').textContent = name;
+  document.getElementById('delete-connector-confirm').onclick = function() {
+    htmx.ajax('DELETE', '/api/v1/connectors/' + encodeURIComponent(name), {
+      swap: 'none',
+      handler: function(_, info) {
+        if (info.successful) window.location.reload();
+      }
+    });
+  };
+  document.getElementById('delete-connector-dialog').showModal();
+}
+</script>
+{% endblock %}

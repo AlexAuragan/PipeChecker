@@ -45,7 +45,19 @@
       ▶ Run Now
     </button>
     <a href="/pipeline/{{ pipeline.name }}/edit" class="btn btn-sm">✎ Edit</a>
+    <button type="button" class="btn-danger btn-sm" onclick="document.getElementById('delete-dialog').showModal()">✕ Delete</button>
   </div>
+
+  <dialog id="delete-dialog" class="confirm-dialog">
+    <p style="font-weight:700; font-size:15px; margin-bottom:8px">Delete <code>{{ pipeline.name }}</code>?</p>
+    <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">This cannot be undone. The pipeline definition will be permanently removed.</p>
+    <div style="display:flex; gap:12px; justify-content:flex-end">
+      <button type="button" class="btn-sm" onclick="document.getElementById('delete-dialog').close()">Cancel</button>
+      <form method="post" action="/pipeline/{{ pipeline.name }}/delete" style="margin:0">
+        <button type="submit" class="btn-danger btn-sm">Delete</button>
+      </form>
+    </div>
+  </dialog>
 </div>
 
 <div class="section">

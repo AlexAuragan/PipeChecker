@@ -45,8 +45,16 @@
         <label>Targets</label>
         <span>{{ target_results | length }}</span>
       </div>
+      {% set total_duration = target_results | sum(attribute='duration') %}
+      {% if total_duration %}
+      <div class="info-item">
+        <label>Total duration</label>
+        <span>{{ fmt_duration(total_duration) }}</span>
+      </div>
+      {% endif %}
     </div>
 
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
     {% if job.status.value in ["failed", "crashed", "cancelled"] %}
     <button
       hx-post="/api/v1/jobs/{{ job.id }}/retry"
@@ -62,6 +70,23 @@
       hx-on::after-request="if(event.detail.successful){ window.location.reload() }">
       ✕ Cancel
     </button>
+    {% endif %}
+    {% if not is_live %}
+    <button type="button" class="btn-danger btn-sm" onclick="document.getElementById('delete-dialog').showModal()">✕ Delete</button>
+    {% endif %}
+    </div>
+
+    {% if not is_live %}
+    <dialog id="delete-dialog" class="confirm-dialog">
+      <p style="font-weight:700; font-size:15px; margin-bottom:8px">Delete this job?</p>
+      <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">All results for job <code style="font-size:11px">{{ job.id }}</code> will be permanently removed.</p>
+      <div style="display:flex; gap:12px; justify-content:flex-end">
+        <button type="button" class="btn-sm" onclick="document.getElementById('delete-dialog').close()">Cancel</button>
+        <form method="post" action="/job/{{ job.id }}/delete" style="margin:0">
+          <button type="submit" class="btn-danger btn-sm">Delete</button>
+        </form>
+      </div>
+    </dialog>
     {% endif %}
   </div>
 

@@ -44,6 +44,7 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
             target_name=result.target.name,
             pipeline_name=result.pipeline_name,
             status=result.status,
+            duration=result.duration,
         )
         session.add(pr)
         session.flush()
@@ -57,6 +58,7 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
                 stderr=step.stderr[:MAX_OUTPUT_LEN],
                 tried_fix=step.tried_fix,
                 skipped=step.skipped,
+                duration=step.duration,
             ))
         session.commit()
 
@@ -78,6 +80,7 @@ def get_job(job_id: UUID) -> dict | None:
                     "target_name": pr.target_name or pr.target_id,
                     "pipeline_name": pr.pipeline_name,
                     "status": pr.status,
+                    "duration": pr.duration,
                     "steps": [
                         {
                             "step_id": s.step_id,
@@ -86,6 +89,7 @@ def get_job(job_id: UUID) -> dict | None:
                             "stderr": s.stderr,
                             "tried_fix": s.tried_fix,
                             "skipped": s.skipped,
+                            "duration": s.duration,
                         }
                         for s in pr.steps
                     ],
@@ -161,6 +165,7 @@ def archive_old_jobs() -> None:
                     ran_at=job.created_at,
                     status=pr.status,
                     changed=changed,
+                    duration=pr.duration,
                 )
                 session.add(archived)
                 session.flush()
@@ -175,6 +180,7 @@ def archive_old_jobs() -> None:
                             stderr=step.stderr,
                             tried_fix=step.tried_fix,
                             skipped=step.skipped,
+                            duration=step.duration,
                         ))
 
             session.delete(job)
@@ -201,6 +207,18 @@ def retry_job(job_id: UUID) -> str | None:
         if job is None or job.status not in (JobStatus.failed, JobStatus.crashed, JobStatus.cancelled):
             return None
         return job.pipeline_name
+
+
+def delete_job(job_id: UUID) -> bool:
+    """Permanently delete a terminal job. Returns False if not found or still running."""
+    with Session(engine) as session:
+        job = session.get(Job, job_id)
+        if job is None or job.status not in _TERMINAL:
+            return False
+        session.delete(job)
+        session.commit()
+    _cancelled.discard(job_id)
+    return True
 
 
 def delete_cancelled_jobs() -> None:

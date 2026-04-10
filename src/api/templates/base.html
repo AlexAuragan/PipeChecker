@@ -503,6 +503,33 @@
       line-height: 1.8;
     }
     .hint { font-size: 10px; color: var(--ink-light); margin-top: 3px; }
+    .config-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .config-row input { flex: 1; }
+    /* ── confirm dialog ─────────────────────────────────────────── */
+    .confirm-dialog {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      border: 2.5px solid var(--ink);
+      border-radius: 20px;
+      padding: 28px 32px;
+      max-width: 420px;
+      width: 90vw;
+      box-shadow: 6px 6px 0 var(--r-sh);
+      background: var(--surface);
+    }
+    .confirm-dialog::backdrop {
+      background: rgba(18, 19, 58, 0.45);
+      backdrop-filter: blur(2px);
+    }
+
     {% block extra_styles %}{% endblock %}
   </style>
 </head>
@@ -510,6 +537,7 @@
   <nav>
     <a href="/" class="logo">PIPECHECKER</a>
     <a href="/">Pipelines</a>
+    <a href="/connectors">Connectors</a>
   </nav>
   <main>
     {% block content %}{% endblock %}
@@ -572,6 +600,11 @@
 
   document.addEventListener('DOMContentLoaded', drawGraphs);
   document.addEventListener('htmx:afterSettle', drawGraphs);
+
+  // Click outside any confirm dialog to cancel
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('confirm-dialog')) e.target.close();
+  });
   </script>
 </body>
 </html>

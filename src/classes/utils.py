@@ -1,5 +1,6 @@
 import shlex
 import socket
+import time
 from pathlib import Path
 
 import paramiko
@@ -86,18 +87,22 @@ def execute_on_machine(config_ssh: str, command: str, return_error: bool = False
     finally:
         client.close()
 
-def execute_on_ct(target: t.ProxmoxCT, command: str, return_error: bool = False) -> str | tuple[str, str, int]:
+def execute_on_ct(target: t.ProxmoxCT, command: str) -> tuple[str, str, int, float]:
     node_ssh = target.ssh_addr
     pct_id = target.pct_id
     ostype = target.ostype
 
+    start = time.time()
+    stdout_str, stderr_str, exit_code = None, None, None
     match ostype:
         case "ubuntu":
-            return execute_on_ubuntu_ct(node_ssh, pct_id, command, return_error)
+            stdout_str, stderr_str, exit_code = execute_on_ubuntu_ct(node_ssh, pct_id, command, True)
         case "debian":
-            return execute_on_debian_ct(node_ssh, pct_id, command, return_error)
+            stdout_str, stderr_str, exit_code = execute_on_debian_ct(node_ssh, pct_id, command, True)
         case _:
             raise NotImplementedError("Proxmox CT execution not implemented for os", ostype)
+    end = time.time()
+    return stdout_str, stderr_str, exit_code, end-start
 
 def execute_on_debian_ct(node_ssh: str, pct_id: int, command: str, return_error: bool = False) -> str | tuple[str, str, int]:
     token = "##CMD_OUTPUT_START##"

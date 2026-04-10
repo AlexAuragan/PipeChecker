@@ -77,6 +77,7 @@ pipeline:
  * [x] Implement connector > pipeline > run
  * [ ] Connectors
    * [x] Proxmox
+   * [x] Caddy
    * [ ] Websites
    * [ ] Github / gitlab / gitea
  * [ ] Runners
@@ -86,7 +87,5 @@ pipeline:
    * [ ] Website
  * [x] Run loop
  * [x] Run history
- * [ ] API + service
-   * [x] Connectors API
-   * [x] Pipelines API
-   * [ ] Web interface
+ * [x] API
+ * [x] Web interface

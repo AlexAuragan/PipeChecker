@@ -1,4 +1,5 @@
 import re
+import time
 from abc import abstractmethod, ABC
 from enum import Enum
 from graphlib import TopologicalSorter
@@ -44,9 +45,9 @@ class PCTRunner(Runner):
     def __init__(self, target: t.ProxmoxCT, pipeline: p.Pipeline):
         super().__init__(target, pipeline)
 
-    def _run_check(self, step: p.PipelineStep, if_failed: bool = False) -> tuple[str, str, bool]:
+    def _run_check(self, step: p.PipelineStep, if_failed: bool = False) -> tuple[str, str, bool, float]:
         command = step.if_failed if if_failed else step.exec
-        stdout, stderr, exit_code = utils.execute_on_ct(self.target, command, return_error=True)
+        stdout, stderr, exit_code, duration = utils.execute_on_ct(self.target, command)
 
         success = None
         match step.check_method:
@@ -60,9 +61,11 @@ class PCTRunner(Runner):
                 success = len(re.findall(step.check_pattern, stdout)) >= 1
             case p.CheckMethod.stdout_not_empty:
                 success = bool(stdout)
+            case p.CheckMethod.finish_in_less_than:
+                success = duration < int(step.check_pattern)
             case _:
                 raise ValueError(step.check_method, "not recognized as a CheckMethod")
-        return stdout, stderr, success
+        return stdout, stderr, success, duration
 
     def _run_step(self, step: p.PipelineStep):
         """
@@ -70,18 +73,19 @@ class PCTRunner(Runner):
         :param step:
         :return:
         """
-        stdout, stderr, success = self._run_check(step)
+        stdout, stderr, success, duration = self._run_check(step)
         if success:
-            return r.StepResult(self.target.id, step.id, success=True, stdout=stdout, stderr=stderr, tried_fix=False, skipped=False)
+            return r.StepResult(self.target.id, step.id, success=True, stdout=stdout, stderr=stderr, tried_fix=False, skipped=False, duration=duration)
         else:
             if step.if_failed:
                 print(f"warning, step failed; stdout: {stdout}; stderr: {stderr}; success: {success}; command: {step.exec}")
-                stdout, stderr, success = self._run_check(step, if_failed=True)
-                return r.StepResult(self.target.id, step.id, success=success, stdout=stdout, stderr=stderr, tried_fix=True, skipped=False)
-            return r.StepResult(self.target.id, step.id, success=success, stdout=stdout, stderr=stderr, tried_fix=False, skipped=False)
+                stdout, stderr, success, duration_2 = self._run_check(step, if_failed=True)
+                duration += duration_2
+                return r.StepResult(self.target.id, step.id, success=success, stdout=stdout, stderr=stderr, tried_fix=True, skipped=False, duration=duration)
+            return r.StepResult(self.target.id, step.id, success=success, stdout=stdout, stderr=stderr, tried_fix=False, skipped=False, duration=duration)
 
     def _skip_step(self, step: p.PipelineStep):
-        return r.StepResult(target_id=self.target.id, step_id=step.id, success=False, stdout="", stderr="", tried_fix=False, skipped=True)
+        return r.StepResult(target_id=self.target.id, step_id=step.id, success=False, stdout="", stderr="", tried_fix=False, skipped=True, duration=0)
 
 
     def run_pipeline(self) -> r.PipelineResult:
@@ -91,7 +95,7 @@ class PCTRunner(Runner):
 
         results_by_id: dict[str, r.StepResult] = {}
         failed: set[str] = set()
-
+        start = time.time()
         while sorter.is_active():
             for step_id in sorter.get_ready():
                 step = steps_by_id[step_id]
@@ -105,8 +109,10 @@ class PCTRunner(Runner):
                 results_by_id[step_id] = res
                 sorter.done(step_id)
         pipes_results = {step.id:results_by_id[step.id] for step in self.pipeline.pipeline}
+        end = time.time()
         return r.PipelineResult(
             target=self.target,
             pipeline_name=self.pipeline.name,
-            steps=pipes_results
+            steps=pipes_results,
+            duration=end - start
         )
