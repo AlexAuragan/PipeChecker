@@ -18,9 +18,9 @@ Connector → Targets → Pipeline → Steps → Results
 
 ## Connectors
 
-| Connector | What it discovers |
-|-----------|-------------------|
-| `proxmox` | LXC containers on a Proxmox node (via SSH) |
+| Connector | What it discovers                                                  |
+|-----------|--------------------------------------------------------------------|
+| `proxmox` | LXC containers on a Proxmox node (via SSH)                         |
 | `caddy`   | Reverse-proxy upstream URLs from a Caddyfile (local, HTTP, or SSH) |
 
 ## Pipeline steps
@@ -37,13 +37,13 @@ Steps are the building blocks of a pipeline. Each step runs a command and valida
 
 **Check methods:**
 
-| Method | Passes when |
-|--------|-------------|
-| `exit_code` | Command exits with `0` |
-| `stderr_empty` | stderr produces no output |
-| `stdout_not_empty` | stdout has any content |
-| `stdout_contains` | stdout contains `check_pattern` |
-| `stdout_regex` | stdout matches `check_pattern` regex |
+| Method             | Passes when                          |
+|--------------------|--------------------------------------|
+| `exit_code`        | Command exits with `0`               |
+| `stderr_empty`     | stderr produces no output            |
+| `stdout_not_empty` | stdout has any content               |
+| `stdout_contains`  | stdout contains `check_pattern`      |
+| `stdout_regex`     | stdout matches `check_pattern` regex |
 
 Steps can declare `requires` to enforce execution order. The runner resolves dependencies topologically and skips dependents if a required step fails.
 
@@ -71,7 +71,8 @@ pipeline:
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE.md) — free to use, modify, and distribute for any non-commercial purpose. Commercial use is not permitted.
+[PolyForm Noncommercial 1.0.0](LICENSE.md) — free to use, modify, and distribute for any non-commercial purpose. 
+Commercial use is not permitted.
 
 ## TODO
  * [x] Implement connector > pipeline > run

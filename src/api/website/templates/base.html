@@ -530,14 +530,15 @@
       backdrop-filter: blur(2px);
     }
 
-    {% block extra_styles %}{% endblock %}
   </style>
+  {% block extra_styles %}{% endblock %}
 </head>
 <body>
   <nav>
     <a href="/" class="logo">PIPECHECKER</a>
     <a href="/">Pipelines</a>
-    <a href="/connectors">Connectors</a>
+    <a href="/connector">Connectors</a>
+    <a href="/script">Scripts</a>
   </nav>
   <main>
     {% block content %}{% endblock %}

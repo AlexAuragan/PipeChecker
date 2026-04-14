@@ -46,8 +46,17 @@ class PCTRunner(Runner):
         super().__init__(target, pipeline)
 
     def _run_check(self, step: p.PipelineStep, if_failed: bool = False) -> tuple[str, str, bool, float]:
-        command = step.if_failed if if_failed else step.exec
-        stdout, stderr, exit_code, duration = utils.execute_on_ct(self.target, command)
+        if if_failed:
+            # if_failed is always a plain command regardless of exec_method
+            stdout, stderr, exit_code, duration = utils.execute_on_ct(self.target, step.if_failed)
+        else:
+            match step.exec_method:
+                case p.ExecMethod.command:
+                    stdout, stderr, exit_code, duration = utils.execute_on_ct(self.target, step.exec)
+                case p.ExecMethod.script:
+                    from src.config import SCRIPTS_FOLDER
+                    stdout, stderr, exit_code, duration = utils.execute_script_on_ct(self.target, SCRIPTS_FOLDER / step.exec)
+
 
         success = None
         match step.check_method:

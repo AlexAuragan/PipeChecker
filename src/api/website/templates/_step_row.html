@@ -1,3 +1,4 @@
+{% set exec_method = step.exec_method if step else 'command' %}
 <div class="step-row" id="step-row-{{ idx }}">
   <div class="step-row-header">
     <span class="step-row-label">Step {{ idx + 1 }}</span>
@@ -13,12 +14,53 @@
              placeholder="e.g. check-nginx" required
              oninput="updateRequiresGroups()">
     </div>
+
+    <!-- exec method toggle -->
     <div class="form-group" style="grid-column: span 2">
-      <label>Command <span style="color:var(--r)">*</span></label>
-      <input type="text" name="step_exec_{{ idx }}"
-             value="{{ step.exec if step else '' }}"
-             placeholder="e.g. systemctl is-active nginx" required>
+      <label>Exec type</label>
+      <div class="exec-toggle">
+        <input type="radio" id="exec-cmd-{{ idx }}" name="step_exec_method_{{ idx }}"
+               value="command" {% if exec_method != 'script' %}checked{% endif %}
+               onchange="onExecMethodChange({{ idx }})">
+        <label for="exec-cmd-{{ idx }}">Command</label>
+        <input type="radio" id="exec-scr-{{ idx }}" name="step_exec_method_{{ idx }}"
+               value="script" {% if exec_method == 'script' %}checked{% endif %}
+               onchange="onExecMethodChange({{ idx }})">
+        <label for="exec-scr-{{ idx }}">Script</label>
+      </div>
     </div>
+
+    <!-- command input -->
+    <div class="form-group" id="exec-command-group-{{ idx }}"
+         style="grid-column: span 3{% if exec_method == 'script' %}; display:none{% endif %}">
+      <label>Command <span style="color:var(--r)">*</span></label>
+      <input type="text" name="step_exec_command_{{ idx }}"
+             value="{{ step.exec_command if step else '' }}"
+             placeholder="e.g. systemctl is-active nginx">
+    </div>
+
+    <!-- script select + view -->
+    <div class="form-group" id="exec-script-group-{{ idx }}"
+         style="grid-column: span 3{% if exec_method != 'script' %}; display:none{% endif %}">
+      <label>Script <span style="color:var(--r)">*</span></label>
+      <div style="display:flex; gap:8px; align-items:stretch">
+        <select name="step_exec_script_{{ idx }}" id="exec-script-select-{{ idx }}" style="flex:1">
+          <option value="">— select a script —</option>
+          {% for s in available_scripts %}
+          <option value="{{ s }}"
+            {% if step and step.exec_script == s %}selected{% endif %}>
+            {{ s }}
+          </option>
+          {% endfor %}
+        </select>
+        <button type="button" class="btn-sm" onclick="viewScript({{ idx }})"
+                title="View script content">&#128065; View</button>
+      </div>
+      {% if not available_scripts %}
+      <span class="hint">No scripts yet — <a href="/script/new" target="_blank">add one</a>.</span>
+      {% endif %}
+    </div>
+
     <div class="form-group">
       <label>Check method</label>
       <select name="step_check_method_{{ idx }}"

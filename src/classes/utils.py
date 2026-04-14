@@ -1,3 +1,4 @@
+import base64
 import shlex
 import socket
 import time
@@ -146,6 +147,12 @@ def _execute_helper(
         raise e
     finally:
         client.close()
+
+
+def execute_script_on_ct(target: t.ProxmoxCT, script_path: Path) -> tuple[str, str, int, float]:
+    script_b64 = base64.b64encode(script_path.read_bytes()).decode('ascii')
+    command = f"echo {shlex.quote(script_b64)} | base64 -d | bash"
+    return execute_on_ct(target, command)
 
 
 if __name__ == '__main__':

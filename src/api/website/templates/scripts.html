@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Scripts — PipeChecker{% endblock %}
+
+{% block extra_styles %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <style>
+    .script-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
+      border: 2.5px solid var(--ink);
+      border-radius: 20px;
+      padding: 0;
+      max-width: 820px;
+      width: 92vw;
+      max-height: 82vh;
+      overflow: hidden;
+      box-shadow: 6px 6px 0 #c7caff;
+    }
+    .script-modal::backdrop {
+      background: rgba(18,19,58,.45);
+      backdrop-filter: blur(2px);
+    }
+    .script-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 2px solid var(--border);
+      background: var(--accent-bg);
+    }
+    .script-modal-title {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .script-modal-body { overflow: auto; max-height: calc(82vh - 56px); }
+    .script-modal-body pre {
+      margin: 0;
+      border-radius: 0;
+      font-size: 12px;
+      line-height: 1.6;
+      background: #282c34;
+    }
+    .script-modal-body pre code { background: transparent; color: inherit; padding: 16px; display: block; }
+    .script-list { display: flex; flex-direction: column; gap: 8px; }
+    .script-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      transition: border-color .15s;
+    }
+    .script-item:hover { border-color: var(--ink-light); }
+    .script-item code { font-size: 13px; }
+    .script-ext-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      border: 1.5px solid;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .ext-sh { color: var(--g); border-color: var(--g); background: var(--g-bg); }
+    .ext-py { color: var(--b); border-color: var(--b); background: var(--b-bg); }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/">Pipelines</a>
+  <span>›</span>
+  Scripts
+</div>
+
+<div class="section">
+  <h1 style="justify-content:space-between">
+    SCRIPTS
+    <a href="/script/new" class="btn btn-sm">+ New Script</a>
+  </h1>
+
+  {% if scripts %}
+  <div class="script-list">
+    {% for s in scripts %}
+    {% set ext = '.' + s.rsplit('.', 1)[-1] %}
+    <div class="script-item">
+      <div style="display:flex; align-items:center; gap:12px">
+        <span class="script-ext-badge {% if ext == '.sh' %}ext-sh{% else %}ext-py{% endif %}">
+          {{ ext[1:] }}
+        </span>
+        <code>{{ s }}</code>
+      </div>
+      <button type="button" class="btn-sm" onclick="viewScript('{{ s }}')">&#128065; View</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    No scripts yet — <a href="/script/new">create one</a> to get started.
+  </div>
+  {% endif %}
+</div>
+
+<dialog id="script-modal" class="script-modal">
+  <div class="script-modal-header">
+    <span class="script-modal-title" id="script-modal-title"></span>
+    <button type="button" class="btn-sm btn-remove"
+            onclick="document.getElementById('script-modal').close()">✕</button>
+  </div>
+  <div class="script-modal-body">
+    <pre><code id="script-modal-code"></code></pre>
+  </div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script>
+  function viewScript(path) {
+    const modal   = document.getElementById('script-modal');
+    const codeEl  = document.getElementById('script-modal-code');
+    const titleEl = document.getElementById('script-modal-title');
+    titleEl.textContent = path;
+    codeEl.removeAttribute('data-highlighted');
+    codeEl.textContent = 'Loading…';
+    modal.showModal();
+    fetch('/script/content?path=' + encodeURIComponent(path))
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(text => {
+        const lang = path.endsWith('.py') ? 'python' : 'bash';
+        codeEl.className = 'language-' + lang;
+        codeEl.textContent = text;
+        hljs.highlightElement(codeEl);
+      })
+      .catch(() => { codeEl.textContent = 'Failed to load script.'; });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}New Script — PipeChecker{% endblock %}
+
+{% block extra_styles %}
+  <style>
+    textarea {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+      min-height: 320px;
+    }
+    .filename-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .filename-row .form-group { flex: 1; }
+    .filename-row .form-group:last-child { flex: 0 0 100px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/">Pipelines</a>
+  <span>›</span>
+  <a href="/scripts">Scripts</a>
+  <span>›</span>
+  New Script
+</div>
+
+<div class="section">
+  <h1>NEW SCRIPT</h1>
+
+  {% if errors %}
+  <div class="error-box">
+    {% for err in errors %}<div>• {{ err }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/script/new">
+    <div class="form-grid">
+
+      <div class="form-group">
+        <label>Subfolder <span class="hint" style="text-transform:none">(optional)</span></label>
+        <input type="text" name="subfolder" value="{{ form_data.subfolder }}"
+               placeholder="e.g. checks/db">
+        <span class="hint">Organise scripts into subfolders within <code>save/scripts/</code></span>
+      </div>
+
+      <div class="form-group" style="grid-column: span 2">
+        <label>Filename <span style="color:var(--r)">*</span></label>
+        <div class="filename-row">
+          <div class="form-group" style="margin:0">
+            <input type="text" name="filename" value="{{ form_data.filename }}"
+                   placeholder="e.g. check_disk" required>
+          </div>
+          <div class="form-group" style="margin:0; flex:0 0 110px">
+            <select name="ext">
+              <option value=".sh" {% if form_data.ext == '.sh' %}selected{% endif %}>.sh (bash)</option>
+              <option value=".py" {% if form_data.ext == '.py' %}selected{% endif %}>.py (python)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="form-group" style="margin-bottom:28px">
+      <label>Content <span style="color:var(--r)">*</span></label>
+      <textarea name="content" placeholder="#!/usr/bin/env bash&#10;&#10;# your script here">{{ form_data.content }}</textarea>
+    </div>
+
+    <div style="display:flex; gap:14px; align-items:center">
+      <button type="submit">✓ Save Script</button>
+      <a href="/script" class="btn btn-sm"
+         style="background:transparent; color:var(--ink-mid); border-color:var(--border); box-shadow:2px 2px 0 var(--border)">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

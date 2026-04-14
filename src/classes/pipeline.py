@@ -6,6 +6,10 @@ from pydantic import BaseModel, field_validator, model_validator, Field
 from src.classes.connectors import Manager
 from src.classes import runner
 
+class ExecMethod(str, Enum):
+    command = "command"
+    script = "script"  # exec is a path relative to SCRIPTS_FOLDER; the runner decides where to run it
+
 class CheckMethod(str, Enum):
     exit_code = "exit_code"
     stdout_regex = "stdout_regex"
@@ -20,10 +24,22 @@ class CheckMethod(str, Enum):
 class PipelineStep(BaseModel):
     id: str
     exec: str
+    exec_method: ExecMethod = "command"
     check_method: CheckMethod
     check_pattern: str | float | int | None = None
     if_failed: str | None
     requires: list[str] = []
+
+    @model_validator(mode="after")
+    def validate_exec_script(self) -> PipelineStep:
+        if self.exec_method == ExecMethod.script:
+            from src.config import SCRIPTS_FOLDER
+            script_path = SCRIPTS_FOLDER / self.exec
+            if not script_path.exists():
+                raise ValueError(
+                    f"Step '{self.id}': script not found at '{script_path}'"
+                )
+        return self
 
     @model_validator(mode="after")
     def validate_check_pattern(self) -> PipelineStep:
@@ -94,6 +110,16 @@ class Pipeline(BaseModel):
     def non_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Pipeline name must be a non-empty string.")
+        return v
+
+    @field_validator("cron")
+    @classmethod
+    def validate_cron(cls, v: str) -> str:
+        from apscheduler.triggers.cron import CronTrigger
+        try:
+            CronTrigger.from_crontab(v)
+        except ValueError as e:
+            raise ValueError(f"Invalid cron expression: {e}")
         return v
 
     @model_validator(mode="after")

@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="breadcrumb">
-  <a href="/connectors">Connectors</a>
+  <a href="/connector">Connectors</a>
   <span>›</span>
   {% if editing %}
   {{ form_data.name }}
@@ -116,7 +116,7 @@
       <button type="submit">
         {% if editing %}✓ Save Changes{% else %}✓ Create Connector{% endif %}
       </button>
-      <a href="/connectors" class="btn btn-sm"
+      <a href="/connector" class="btn btn-sm"
          style="background:transparent; color:var(--ink-mid); border-color:var(--border); box-shadow:2px 2px 0 var(--border)">
         Cancel
       </a>
