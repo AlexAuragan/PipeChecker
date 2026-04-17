@@ -39,7 +39,7 @@
 
   <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap">
     <button
-      hx-post="/api/v1/jobs/{{ pipeline.name }}"
+      hx-post="/job/run/{{ pipeline.name }}"
       hx-swap="none"
       hx-on::after-request="if(event.detail.successful){ window.location='/job/'+JSON.parse(event.detail.xhr.responseText).job_id }">
       ▶ Run Now

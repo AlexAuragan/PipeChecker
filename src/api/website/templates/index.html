@@ -45,7 +45,7 @@
         </td>
         <td>
           <button class="btn-sm"
-            hx-post="/api/v1/jobs/{{ name }}"
+            hx-post="/job/run/{{ name }}"
             hx-swap="none"
             hx-on::after-request="if(event.detail.successful){ window.location='/job/'+JSON.parse(event.detail.xhr.responseText).job_id }">
             Run

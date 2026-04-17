@@ -1,12 +1,47 @@
 from uuid import UUID
 
-from fastapi import Request, HTTPException, APIRouter
+from fastapi import Request, HTTPException, APIRouter, BackgroundTasks
+from fastapi.params import Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from src.api import utils
 from src.api.website.utils import compute_columns, build_edges, templates
+from src.classes.connectors import Manager
 from src.core import jobs
+from src.core.database import JobSource
 
 router = APIRouter(tags=["job"])
+
+@router.post("/run/{name}")
+def web_start_job(
+    name: str,
+    background_tasks: BackgroundTasks,
+    manager: Manager = Depends(utils.get_manager),
+):
+    utils.get_pipeline_or_404(name, None)
+    job_id = jobs.create_job(pipeline_name=name, source=JobSource.manual)
+    background_tasks.add_task(utils.execute_job, job_id, name, manager)
+    return {"job_id": str(job_id)}
+
+
+@router.post("/{job_id}/retry")
+def web_retry_job(
+    job_id: UUID,
+    background_tasks: BackgroundTasks,
+    manager: Manager = Depends(utils.get_manager),
+):
+    pipeline_name = jobs.retry_job(job_id)
+    if pipeline_name is None:
+        raise HTTPException(status_code=409, detail="Job is not retryable.")
+    new_job_id = jobs.create_job(pipeline_name=pipeline_name)
+    background_tasks.add_task(utils.execute_job, new_job_id, pipeline_name, manager)
+    return {"job_id": str(new_job_id)}
+
+
+@router.post("/{job_id}/cancel", status_code=204)
+def web_cancel_job(job_id: UUID):
+    if not jobs.cancel_job(job_id):
+        raise HTTPException(status_code=409, detail="Job is not cancellable.")
+
 
 @router.post("/{job_id}/delete", response_class=HTMLResponse)
 async def delete_job_route(request: Request, job_id: UUID):
