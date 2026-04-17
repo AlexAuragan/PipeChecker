@@ -6,6 +6,9 @@ touch the real save/ folder.  Fixture YAML files from tests/fixtures/
 are copied into the temp tree before each test session.
 """
 
+import hashlib
+import os
+import secrets
 import shutil
 from pathlib import Path
 
@@ -14,8 +17,22 @@ import pytest
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(scope="session")
+def _test_credentials():
+    """Generate a fresh API key + hash once per test session."""
+    key = "pc_" + secrets.token_urlsafe(32)
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", key.encode(), salt, 100_000)
+    return key, f"{salt.hex()}:{dk.hex()}"
+
+
+@pytest.fixture(scope="session")
+def api_key(_test_credentials) -> str:
+    return _test_credentials[0]
+
+
 @pytest.fixture(autouse=True)
-def isolated_config(tmp_path, monkeypatch):
+def isolated_config(tmp_path, monkeypatch, _test_credentials):
     """
     Redirect every path in src.config to a disposable tmp_path tree.
 
@@ -49,3 +66,7 @@ def isolated_config(tmp_path, monkeypatch):
     monkeypatch.setattr(cfg, "SAVE_FOLDER", save_dir)
     monkeypatch.setattr(cfg, "CONNECTOR_FILE", save_dir / "connectors.yaml")
     monkeypatch.setattr(cfg, "PIPELINE_FOLDER", save_dir / "pipelines")
+
+    # Enable API key auth with the session-generated test credentials
+    _, key_hash = _test_credentials
+    monkeypatch.setenv("PIPECHECKER_API_KEY_HASH", key_hash)

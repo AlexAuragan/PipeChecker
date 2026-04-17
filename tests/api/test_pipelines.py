@@ -23,8 +23,8 @@ PREFIX = "/api/v1/pipelines"
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def client():
-    with TestClient(app) as c:
+def client(api_key):
+    with TestClient(app, headers={"X-API-Key": api_key}) as c:
         yield c
 
 

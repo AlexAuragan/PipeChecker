@@ -59,28 +59,28 @@ def _no_save(monkeypatch):
 
 
 @pytest.fixture()
-def client_empty():
+def client_empty(api_key):
     manager = _make_manager()
     app.dependency_overrides[utils.get_manager] = lambda: manager
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": api_key}) as c:
         yield c
     app.dependency_overrides.clear()
 
 
 @pytest.fixture()
-def client_with_proxmox():
+def client_with_proxmox(api_key):
     manager = _make_manager(_proxmox())
     app.dependency_overrides[utils.get_manager] = lambda: manager
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": api_key}) as c:
         yield c
     app.dependency_overrides.clear()
 
 
 @pytest.fixture()
-def client_with_both():
+def client_with_both(api_key):
     manager = _make_manager(_proxmox(), _caddy())
     app.dependency_overrides[utils.get_manager] = lambda: manager
-    with TestClient(app) as c:
+    with TestClient(app, headers={"X-API-Key": api_key}) as c:
         yield c
     app.dependency_overrides.clear()
 

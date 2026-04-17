@@ -53,11 +53,11 @@ def db_engine(monkeypatch):
 
 
 @pytest.fixture()
-def client(db_engine):
+def client(db_engine, api_key):
     manager = Manager(autoload=False)
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with patch("src.core.run.run_pipeline", side_effect=_fake_run_pipeline):
-        with TestClient(app) as c:
+        with TestClient(app, headers={"X-API-Key": api_key}) as c:
             yield c
     app.dependency_overrides.clear()
 

@@ -1,15 +1,16 @@
 from typing import Annotated
 
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import APIRouter, HTTPException, Request, status, Query
+from fastapi import APIRouter, HTTPException, Request, status, Query, Depends
 from pydantic import BaseModel, ValidationError
 
+from src.api.security import require_api_key
 from src.api.utils import get_pipeline_or_404, make_scheduled_job, scheduler
 from src.classes import pipeline as p
 from src.classes.pipeline import CheckMethod
 from src.core import storage
 
-router = APIRouter(prefix="/pipelines", tags=["pipelines"])
+router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(require_api_key)])
 
 ## Schema
 

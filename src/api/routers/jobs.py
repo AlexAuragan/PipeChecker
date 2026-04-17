@@ -6,12 +6,13 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends, Query
 from pydantic import BaseModel
 
+from src.api.security import require_api_key
 from src.api import utils
 from src.classes.connectors import Manager
 from src.core import jobs
 from src.core.database import JobSource
 
-router = APIRouter(prefix="/jobs", tags=["jobs", "runs"])
+router = APIRouter(prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(require_api_key)])
 
 
 class StepResultResponse(BaseModel):

@@ -8,12 +8,13 @@ from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.params import Depends
 from pydantic import BaseModel, Field
 
+from src.api.security import require_api_key
 from src.api import utils
 from src.classes.connectors import Manager, ConnectorType, Proxmox, Caddy, Connector
 from src.core.storage import save_manager
 
 
-router = APIRouter(prefix="/connectors", tags=["connectors"])
+router = APIRouter(prefix="/connectors", tags=["connectors"], dependencies=[Depends(require_api_key)])
 
 ## Schema
 ConnectorBody = Annotated[Union[Proxmox, Caddy], Field(discriminator="type")]
