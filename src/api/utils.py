@@ -32,10 +32,12 @@ def make_scheduled_job(app: FastAPI, pipe: Pipeline):
 async def initial_load(app):
     try:
         app.state.manager = await asyncio.to_thread(load_and_init)
-        app.state.ready = True
         print("Connectors loaded")
     except Exception as e:
         print(f"Failed to load connectors: {e}")
+        app.state.manager = Manager(autoload=False)  # empty — jobs run with no targets
+    finally:
+        app.state.ready = True
 
 
 @asynccontextmanager
