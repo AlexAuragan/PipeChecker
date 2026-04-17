@@ -58,7 +58,11 @@ class Manager:
 
     def load_targets(self) -> None:
         for conn in self:
-            conn.load_targets()
+            try:
+                conn.load_targets()
+            except Exception as e:
+                print(f"Failed to load targets for connector '{conn.name}': {e}")
+                conn._targets = []
 
 class Connector(BaseModel, ABC):
     """
