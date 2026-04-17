@@ -88,5 +88,6 @@ Commercial use is not permitted.
    * [ ] Website
  * [x] Run loop
  * [x] Run history
- * [x] API
- * [x] Web interface
+   * [ ] Long term view
+ * [ ] Set gravity for each pipeline or step (if it fails is it an error or just a warning ?)
+ * [ ] Set up notification system (webhook, rss).
