@@ -31,6 +31,7 @@ class Job(SQLModel, table=True):
     status: JobStatus = JobStatus.pending
     source: JobSource = Field(default=JobSource.manual)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    crash_reason: str | None = Field(default=None)
 
     results: list["LivePipelineResult"] = Relationship(
         back_populates="job",
@@ -113,6 +114,9 @@ def init_db():
         job_cols = [c["name"] for c in sa_inspect(engine).get_columns("job")]
         if "source" not in job_cols:
             conn.execute(text("ALTER TABLE job ADD COLUMN source VARCHAR NOT NULL DEFAULT 'manual'"))
+            conn.commit()
+        if "crash_reason" not in job_cols:
+            conn.execute(text("ALTER TABLE job ADD COLUMN crash_reason VARCHAR"))
             conn.commit()
 
         lpr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")]

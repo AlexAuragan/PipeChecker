@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from contextlib import asynccontextmanager
 from typing import Tuple
 
@@ -178,5 +179,6 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
             return
         jobs.set_job_status(job_id, JobStatus.completed)
     except Exception as e:
-        jobs.set_job_status(job_id, JobStatus.crashed)
+        tb = traceback.format_exc()
+        jobs.set_job_status(job_id, JobStatus.crashed, crash_reason=tb)
         print(f"Job {job_id} crashed with exception: {e}")

@@ -52,3 +52,6 @@ logs/
 # Distribution
 *.tar.gz
 *.whl
+
+# save
+/save/

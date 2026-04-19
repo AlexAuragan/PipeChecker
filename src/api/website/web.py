@@ -1,10 +1,7 @@
-from uuid import UUID
-
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
 from src.api import utils
-from src.api.website.utils import (compute_columns, build_edges, connector_form_data, parse_connector_form, templates,
-                                   list_scripts)
+from src.api.website.utils import templates, list_scripts
 from src.classes.pipeline import CheckMethod
 from src.core import jobs
 

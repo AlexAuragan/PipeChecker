@@ -20,7 +20,7 @@ def connectors_page(request: Request):
     })
 
 
-@router.get("/connector/new", response_class=HTMLResponse)
+@router.get("/new", response_class=HTMLResponse)
 def new_connector_page(request: Request):
     return templates.TemplateResponse(request=request, name="connector_form.html", context={
         "request": request,
@@ -34,7 +34,7 @@ def new_connector_page(request: Request):
     })
 
 
-@router.post("/connector/new", response_class=HTMLResponse)
+@router.post("/new", response_class=HTMLResponse)
 async def create_connector_web(request: Request):
     form = await request.form()
     try:
@@ -62,7 +62,7 @@ async def create_connector_web(request: Request):
     return RedirectResponse("/connector", status_code=303)
 
 
-@router.get("/connector/{name}/edit", response_class=HTMLResponse)
+@router.get("/{name}/edit", response_class=HTMLResponse)
 def edit_connector_page(request: Request, name: str):
     manager = storage.load_manager()
     connector = utils.get_connector_or_404(manager, name)
@@ -80,7 +80,7 @@ def edit_connector_page(request: Request, name: str):
     })
 
 
-@router.post("/connector/{name}/edit", response_class=HTMLResponse)
+@router.post("/{name}/edit", response_class=HTMLResponse)
 async def update_connector_web(request: Request, name: str):
     form = await request.form()
     try:

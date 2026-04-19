@@ -1,25 +1,9 @@
-from enum import Enum
 from typing import Annotated
 
 from pydantic import BaseModel, field_validator, model_validator, Field
-
 from src.classes.connectors import Manager
-from src.classes import runner
+from src.classes.enums import ExecMethod, CheckMethod, RunnerType
 
-class ExecMethod(str, Enum):
-    command = "command"
-    script = "script"  # exec is a path relative to SCRIPTS_FOLDER; the runner decides where to run it
-
-class CheckMethod(str, Enum):
-    exit_code = "exit_code"
-    stdout_regex = "stdout_regex"
-    stderr_empty = "stderr_empty"
-    stdout_contains = "stdout_contains"
-    stdout_not_empty = "stdout_not_empty"
-    finish_in_less_than = "finish_in_less_than"
-
-    def requires_pattern(self):
-        return self in (CheckMethod.stdout_contains, CheckMethod.stdout_regex, CheckMethod.finish_in_less_than)
 
 class PipelineStep(BaseModel):
     id: str
@@ -72,7 +56,7 @@ class Pipeline(BaseModel):
     name: str
     pipeline: Annotated[list[PipelineStep], Field(min_length=1)]
     connectors: list[str] = []
-    runner: runner.RunnerType
+    runner: RunnerType
     cron: str
 
     @model_validator(mode="after")

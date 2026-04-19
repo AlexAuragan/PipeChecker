@@ -1,6 +1,6 @@
 [project]
 name = "pipechecker"
-version = "0.0.5"
+version = "0.0.6"
 description = "Service to manage devops pipelines"
 requires-python = ">=3.14"
 dependencies = [

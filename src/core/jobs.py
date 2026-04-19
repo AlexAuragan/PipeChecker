@@ -26,12 +26,14 @@ def create_job(uuid: UUID = None, pipeline_name: str = None, source: JobSource =
         return job.id
 
 
-def set_job_status(job_id: UUID, status: JobStatus) -> None:
+def set_job_status(job_id: UUID, status: JobStatus, crash_reason: str | None = None) -> None:
     with Session(engine) as session:
         job = session.get(Job, job_id)
         if job is None:
             raise KeyError(f"Job {job_id} not found.")
         job.status = status
+        if crash_reason is not None:
+            job.crash_reason = crash_reason
         session.add(job)
         session.commit()
 
@@ -74,6 +76,7 @@ def get_job(job_id: UUID) -> dict | None:
             "status": job.status,
             "source": job.source,
             "created_at": job.created_at,
+            "crash_reason": job.crash_reason,
             "results": [
                 {
                     "target_id": pr.target_id,

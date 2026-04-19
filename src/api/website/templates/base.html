@@ -544,6 +544,16 @@
     {% block content %}{% endblock %}
   </main>
 
+  <dialog id="server-loading-dialog" class="confirm-dialog">
+    <p style="font-weight:700; font-size:15px; margin-bottom:8px">Server is loading</p>
+    <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">
+      PipeChecker is still initialising connectors. Wait a moment, then try again.
+    </p>
+    <div style="display:flex; justify-content:flex-end">
+      <button type="button" class="btn-sm" onclick="document.getElementById('server-loading-dialog').close()">OK</button>
+    </div>
+  </dialog>
+
   <script>
   // ── graph arrows ──────────────────────────────────────────────────────────
   function drawGraphs() {
@@ -605,6 +615,14 @@
   // Click outside any confirm dialog to cancel
   document.addEventListener('click', function(e) {
     if (e.target.classList.contains('confirm-dialog')) e.target.close();
+  });
+
+  // Show loading popup on 503
+  document.addEventListener('htmx:responseError', function(e) {
+    if (e.detail.xhr.status === 503) {
+      e.detail.xhr.abort && e.detail.xhr.abort();
+      document.getElementById('server-loading-dialog').showModal();
+    }
   });
   </script>
 </body>

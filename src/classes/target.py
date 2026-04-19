@@ -70,3 +70,30 @@ class ProxmoxCT(Target):
     @property
     def name(self):
         return f"[{self.pct_id}] {self.pct_name}"
+
+@dataclass
+class RemoteLinuxMachine(Target):
+    machine_ip: IPv4Address
+    user: str
+    exec_dir: str
+    hostname: str
+
+    @property
+    def ssh_addr(self):
+        return f"{self.user}@{self.machine_ip}"
+
+    @property
+    def id(self):
+        return f"{self.ssh_addr}:{self.exec_dir}"
+
+    @property
+    def config(self) -> dict:
+        return {
+            "machine_ip": self.machine_ip,
+            "user": self.user,
+            "exec_dir": self.exec_dir,
+        }
+
+    @property
+    def name(self):
+        return f"{self.hostname} ({self.user})"

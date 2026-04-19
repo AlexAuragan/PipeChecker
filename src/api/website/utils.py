@@ -3,12 +3,12 @@ from pathlib import Path
 
 from starlette.templating import Jinja2Templates
 
-from src.classes import connectors
+from src.classes import connectors, CONNECTOR_RUNNER_MAP
 from src.classes.connectors import Connector, ConnectorType
 from src.classes.pipeline import Pipeline, CheckMethod
-from src.classes.runner import RunnerType
 from src.config import ALLOWED_SCRIPT_EXTENSIONS, SCRIPTS_FOLDER
 from src.core import storage
+
 
 
 ## Script helper
@@ -23,18 +23,19 @@ def list_scripts() -> list[str]:
     )
 
 
-## Form helper
+## Form helpers
 
 def form_base_ctx() -> dict:
     return {
-        "runner_types": list(RunnerType),
         "check_methods": list(CheckMethod),
         "available_scripts": list_scripts(),
     }
 
-def available_connectors() -> list[str]:
-    return [c.name for c in storage.load_manager()]
-
+def available_connectors() -> list[dict]:
+    return [
+        {"name": c.name, "runner_type": CONNECTOR_RUNNER_MAP[c.type].value}
+        for c in storage.load_manager()
+    ]
 
 def steps_from_form(form) -> list[tuple[int, dict]]:
     """Re-inflate step rows from raw POST form data (for error re-render)."""
@@ -75,7 +76,7 @@ def parse_pipeline_form(form) -> tuple[str, Pipeline]:
     group = (form.get("group") or "default").strip() or "default"
     name  = (form.get("name")  or "").strip()
     cron  = (form.get("cron")  or "").strip()
-    runner_val      = (form.get("runner") or "").strip()
+    runner_val = (form.get("runner") or "").strip()
     connector_list  = [v for k, v in form.multi_items() if k == "connectors"]
 
     indices = sorted({

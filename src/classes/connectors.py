@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from enum import Enum
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
@@ -9,14 +8,12 @@ import yaml
 from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, model_validator
 
 from src import config
-from src.classes import utils, target
+from src.classes import utils
+from src.classes import target
+from src.classes.enums import ConnectorType
 from src.misc.caddy_parser import parse_caddyfile
 from src.misc.simple_parsers import parse_table, pct_config_parser
 
-
-class ConnectorType(str, Enum):
-    proxmox = "Proxmox"
-    caddy = "Caddy"
 
 class Manager:
     def __init__(self, autoload: bool = True):
@@ -63,6 +60,7 @@ class Manager:
             except Exception as e:
                 print(f"Failed to load targets for connector '{conn.name}': {e}")
                 conn._targets = []
+                conn._load_error = str(e)
 
 class Connector(BaseModel, ABC):
     """
@@ -75,6 +73,7 @@ class Connector(BaseModel, ABC):
     config_url: list[str] = []
     config_ssh: list[str] = []
     _targets: list[target.Target] | None = PrivateAttr(default=None)
+    _load_error: str | None = PrivateAttr(default=None)
 
     @field_validator("config_path", "config_url", "config_ssh", mode="before")
     @classmethod
@@ -107,6 +106,8 @@ class Connector(BaseModel, ABC):
 
     @property
     def targets(self):
+        if self._load_error is not None:
+            raise RuntimeError(f"Connector '{self.name}' failed to load targets: {self._load_error}")
         if self._targets is None:
             raise ValueError("targets was not initialized, please call connector.load_targets() first")
         return self._targets
@@ -147,6 +148,34 @@ class Caddy(Connector):
 
         parsed = parse_caddyfile(content)
         return [target.Url(addr) for addr in parsed]
+
+class LinuxMachine(Connector):
+    type: Literal[ConnectorType.linux_machine] = ConnectorType.linux_machine
+    exec_dir: str = "/"
+
+    @model_validator(mode="before")
+    @classmethod
+    def ignore_unused_configs(cls, data):
+        if isinstance(data, dict):
+            data["config_path"] = []
+            data["config_url"] = []
+        return data
+
+    def single_init(
+            self,
+            config_path: str | Path = None,
+            config_url: str = None,
+            config_ssh: str = None,
+    ) -> list[target.Target]:
+        hostname = utils.execute_on_machine(config_ssh, "hostname").strip()
+        user, ip = config_ssh.split("@")
+        return [target.RemoteLinuxMachine(
+            machine_ip=IPv4Address(ip),
+            user=user,
+            exec_dir=self.exec_dir,
+            hostname=hostname,
+        )]
+
 
 class Proxmox(Connector):
     type: Literal[ConnectorType.proxmox] = ConnectorType.proxmox

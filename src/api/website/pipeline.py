@@ -5,7 +5,6 @@ from pydantic import ValidationError
 from src.api import utils
 from src.api.website.utils import (available_connectors, parse_pipeline_form, steps_from_form, form_base_ctx,
                                    compute_columns, build_edges, templates)
-from src.classes.runner import RunnerType
 from src.core import jobs, storage as _storage
 
 router = APIRouter(tags=["pipeline"])
@@ -18,7 +17,7 @@ def new_pipeline_page(request: Request):
         "editing": False,
         "form_data": {
             "name": "", "group": "default", "cron": "0 * * * *",
-            "runner": RunnerType.proxmox_ct.value, "connectors": [],
+            "runner": "", "connectors": [],
         },
         "steps": [],
         "all_step_ids": [],

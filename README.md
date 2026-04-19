@@ -91,4 +91,4 @@ Commercial use is not permitted.
    * [ ] Long term view
  * [ ] Set gravity for each pipeline or step (if it fails is it an error or just a warning ?)
  * [ ] Set up notification system (webhook, rss).
- * [ ] Add info / helper for cron settings on web app
+ * [x] Add info / helper for cron settings on web app

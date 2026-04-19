@@ -78,6 +78,10 @@ def job_page(request: Request, job_id: UUID):
 
     is_live = str(job["status"].value) in ("pending", "running")
 
+    crash_reason = job.get("crash_reason")
+    _SSH_MARKERS = ("paramiko", "AuthenticationException", "NoValidConnectionsError", "ssh_exception")
+    is_ssh_error = bool(crash_reason and any(m in crash_reason for m in _SSH_MARKERS))
+
     return templates.TemplateResponse(
         request=request,
         name="job.html",
@@ -91,4 +95,6 @@ def job_page(request: Request, job_id: UUID):
         "target_results": target_results,
         "status_counts": status_counts,
         "is_live": is_live,
+        "crash_reason": crash_reason,
+        "is_ssh_error": is_ssh_error,
     })

@@ -4,6 +4,132 @@
 {% block extra_styles %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <style>
+    /* ── cron info button ───────────────────────────────────────── */
+    .cron-info-btn {
+      background: transparent;
+      border: 1.5px solid var(--ink-light);
+      color: var(--ink-light);
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 9px;
+      font-weight: 800;
+      font-style: italic;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: none;
+      flex-shrink: 0;
+      line-height: 1;
+      transition: border-color .15s, color .15s;
+    }
+    .cron-info-btn:hover, .cron-info-btn:active {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ── cron popover ───────────────────────────────────────────── */
+    .cron-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 200;
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: 16px;
+      padding: 14px 16px;
+      min-width: 300px;
+      box-shadow: 5px 5px 0 #c7caff;
+    }
+    .cron-popover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--ink-mid);
+    }
+    .cron-ref {
+      background: var(--accent-bg);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+    .cron-ref-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0 6px;
+      text-align: center;
+    }
+    .cron-ref-field {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .cron-ref-name {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ink-light);
+    }
+    .cron-ref-star {
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+    .cron-ref-range {
+      font-size: 9px;
+      color: var(--ink-light);
+      white-space: nowrap;
+    }
+    .cron-presets {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .cron-preset {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color .12s, box-shadow .12s, transform .12s;
+    }
+    .cron-preset:hover {
+      border-color: var(--accent);
+      box-shadow: 3px 3px 0 #c7caff;
+      transform: translate(-1px, -1px);
+    }
+    .cron-preset:active {
+      box-shadow: 1px 1px 0 #c7caff;
+      transform: translate(1px, 1px);
+    }
+    .cron-preset-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-mid);
+      letter-spacing: .02em;
+    }
+    .cron-preset code {
+      font-size: 10px;
+      padding: 1px 5px;
+    }
     /* exec method pill toggle */
     .exec-toggle {
       display: inline-flex;
@@ -126,23 +252,78 @@
         {% endif %}
       </div>
 
-      <div class="form-group">
-        <label>Cron schedule <span style="color:var(--r)">*</span></label>
-        <input type="text" name="cron" value="{{ form_data.cron }}"
-               placeholder="0 * * * *" required>
+      <div class="form-group" style="position:relative">
+        <label style="display:flex;align-items:center;gap:5px">
+          Cron schedule <span style="color:var(--r)">*</span>
+          <button type="button" class="cron-info-btn" id="cron-info-btn"
+                  onclick="toggleCronPopover(event)" aria-label="Cron help">i</button>
+        </label>
+        <input type="text" name="cron" id="cron-input" value="{{ form_data.cron }}"
+               placeholder="0 6 * * *" required>
         <span class="hint">Standard 5-field cron expression</span>
+
+        <div class="cron-popover" id="cron-popover" hidden>
+          <div class="cron-popover-header">
+            <span>Cron syntax</span>
+            <button type="button" class="btn-sm btn-remove"
+                    onclick="closeCronPopover()">✕</button>
+          </div>
+          <div class="cron-ref">
+            <div class="cron-ref-grid">
+              <span class="cron-ref-field">
+                <span class="cron-ref-name">min</span>
+                <span class="cron-ref-star">*</span>
+                <span class="cron-ref-range">0–59</span>
+              </span>
+              <span class="cron-ref-field">
+                <span class="cron-ref-name">hour</span>
+                <span class="cron-ref-star">*</span>
+                <span class="cron-ref-range">0–23</span>
+              </span>
+              <span class="cron-ref-field">
+                <span class="cron-ref-name">day</span>
+                <span class="cron-ref-star">*</span>
+                <span class="cron-ref-range">1–31</span>
+              </span>
+              <span class="cron-ref-field">
+                <span class="cron-ref-name">month</span>
+                <span class="cron-ref-star">*</span>
+                <span class="cron-ref-range">1–12</span>
+              </span>
+              <span class="cron-ref-field">
+                <span class="cron-ref-name">wday</span>
+                <span class="cron-ref-star">*</span>
+                <span class="cron-ref-range">0–6 (Sun=0)</span>
+              </span>
+            </div>
+          </div>
+          <div class="cron-presets">
+            <button type="button" class="cron-preset" onclick="setCron('0 6 * * *')">
+              <span class="cron-preset-label">Every day</span>
+              <code>0 6 * * *</code>
+            </button>
+            <button type="button" class="cron-preset" onclick="setCron('0 6,18 * * *')">
+              <span class="cron-preset-label">Twice a day</span>
+              <code>0 6,18 * * *</code>
+            </button>
+            <button type="button" class="cron-preset" onclick="setCron('0 6 * * 1')">
+              <span class="cron-preset-label">Every week</span>
+              <code>0 6 * * 1</code>
+            </button>
+            <button type="button" class="cron-preset" onclick="setCron('0 6 1 * *')">
+              <span class="cron-preset-label">Once a month</span>
+              <code>0 6 1 * *</code>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="form-group">
-        <label>Runner <span style="color:var(--r)">*</span></label>
-        <select name="runner">
-          {% for rt in runner_types %}
-          <option value="{{ rt.value }}"
-            {% if form_data.runner == rt.value %}selected{% endif %}>
-            {{ rt.value }}
-          </option>
-          {% endfor %}
-        </select>
+        <label>Runner</label>
+        <input type="hidden" name="runner" id="runner-hidden" value="{{ form_data.runner }}">
+        <div id="runner-display" style="font-size:13px;padding:6px 0">
+          {% if form_data.runner %}<code>{{ form_data.runner }}</code>{% else %}<span class="hint">Inferred from connector selection</span>{% endif %}
+        </div>
       </div>
 
     </div>
@@ -150,12 +331,14 @@
     <!-- ── connectors ────────────────────────────────────────────── -->
     <h2>CONNECTORS</h2>
     {% if available_connectors %}
-    <div class="checkbox-group" style="margin-bottom:28px">
+    <div class="checkbox-group" id="connectors-group" style="margin-bottom:28px">
       {% for c in available_connectors %}
-      <label class="checkbox-item">
-        <input type="checkbox" name="connectors" value="{{ c }}"
-               {% if c in form_data.connectors %}checked{% endif %}>
-        <code>{{ c }}</code>
+      <label class="checkbox-item" data-runner-type="{{ c.runner_type }}">
+        <input type="checkbox" name="connectors" value="{{ c.name }}"
+               data-runner-type="{{ c.runner_type }}"
+               {% if c.name in form_data.connectors %}checked{% endif %}>
+        <code>{{ c.name }}</code>
+        <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-light);background:var(--accent-bg);padding:1px 5px;border-radius:4px;margin-left:4px">{{ c.runner_type }}</span>
       </label>
       {% endfor %}
     </div>
@@ -291,5 +474,68 @@
   }
 
   document.addEventListener('DOMContentLoaded', updateRequiresGroups);
+
+  // ── cron popover ──────────────────────────────────────────────────────────
+  function toggleCronPopover(e) {
+    e.stopPropagation();
+    const p = document.getElementById('cron-popover');
+    p.hidden ? openCronPopover() : closeCronPopover();
+  }
+  function openCronPopover() {
+    document.getElementById('cron-popover').hidden = false;
+    setTimeout(() => document.addEventListener('click', _closeCronOnOutside), 0);
+  }
+  function closeCronPopover() {
+    document.getElementById('cron-popover').hidden = true;
+    document.removeEventListener('click', _closeCronOnOutside);
+  }
+  function _closeCronOnOutside(e) {
+    const p = document.getElementById('cron-popover');
+    if (p && !p.contains(e.target) && e.target.id !== 'cron-info-btn') {
+      closeCronPopover();
+    }
+  }
+  function setCron(expr) {
+    document.getElementById('cron-input').value = expr;
+    closeCronPopover();
+  }
+
+  // ── connector / runner lock ───────────────────────────────────────────────
+  function updateConnectorLock() {
+    const all = [...document.querySelectorAll('input[name="connectors"]')];
+    const checked = all.filter(cb => cb.checked);
+    const runnerHidden = document.getElementById('runner-hidden');
+    const runnerDisplay = document.getElementById('runner-display');
+    if (!runnerHidden) return;
+
+    if (checked.length === 0) {
+      all.forEach(cb => {
+        cb.disabled = false;
+        cb.closest('.checkbox-item').style.opacity = '';
+        cb.closest('.checkbox-item').style.pointerEvents = '';
+      });
+      runnerHidden.value = '';
+      runnerDisplay.innerHTML = '<span class="hint">Inferred from connector selection</span>';
+      return;
+    }
+
+    const lockedType = checked[0].dataset.runnerType;
+    runnerHidden.value = lockedType;
+    runnerDisplay.innerHTML = '<code>' + lockedType + '</code>';
+
+    all.forEach(cb => {
+      const compatible = cb.dataset.runnerType === lockedType;
+      cb.disabled = !compatible;
+      cb.closest('.checkbox-item').style.opacity = compatible ? '' : '0.35';
+      cb.closest('.checkbox-item').style.pointerEvents = compatible ? '' : 'none';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[name="connectors"]').forEach(cb => {
+      cb.addEventListener('change', updateConnectorLock);
+    });
+    updateConnectorLock();
+  });
 </script>
 {% endblock %}

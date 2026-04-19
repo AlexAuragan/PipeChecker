@@ -90,6 +90,23 @@
     {% endif %}
   </div>
 
+  {% if is_ssh_error %}
+  <div class="section" style="border-left:3px solid var(--red,#e05252); background:color-mix(in srgb,var(--red,#e05252) 8%,transparent)">
+    <h3 style="margin:0 0 6px; color:var(--red,#e05252)">SSH connection failed</h3>
+    <p style="margin:0; font-size:13px; color:var(--ink-mid)">
+      PipeChecker could not reach the target over SSH.
+      Check that the host is reachable, your SSH key is installed, and the user has permission to connect.
+    </p>
+  </div>
+  {% endif %}
+
+  {% if crash_reason and job.status.value == "crashed" %}
+  <div class="section">
+    <h3 style="margin:0 0 8px">Crash log</h3>
+    <pre style="margin:0; font-size:11px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; background:var(--surface-2,#1a1a1a); padding:12px; border-radius:6px; color:var(--ink-mid)">{{ crash_reason }}</pre>
+  </div>
+  {% endif %}
+
   {% if not target_results %}
   <div class="section">
     <div class="empty">

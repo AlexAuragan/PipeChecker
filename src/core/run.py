@@ -1,19 +1,23 @@
 from collections.abc import Callable
 
+from src.classes import RunnerType
 from src.classes.connectors import Manager
 from src.classes.pipeline import Pipeline
-from src.classes.runner import Runner, PCTRunner, RunnerType
-from src.classes.target import Target, ProxmoxCT
+from src.classes.runner import Runner, PCTRunner, LinuxMachineRunner
+from src.classes.target import Target, ProxmoxCT, RemoteLinuxMachine
 from src.classes.results import PipelineResult
 
 
 def get_runner(pipeline: Pipeline, target: Target) -> Runner:
     match pipeline.runner:
         case RunnerType.proxmox_ct:
-            assert isinstance(target, ProxmoxCT)
+            assert isinstance(target, ProxmoxCT), f"{target}, {type(target)}"
             return PCTRunner(target, pipeline)
+        case RunnerType.linux_machine:
+            assert isinstance(target, RemoteLinuxMachine), f"{target}, {type(target)}"
+            return LinuxMachineRunner(target, pipeline)
         case _:
-            raise NotImplementedError("Not implemented yet")
+            raise NotImplementedError(f"No runner for {pipeline.runner}")
 
 
 def run_pipeline(
