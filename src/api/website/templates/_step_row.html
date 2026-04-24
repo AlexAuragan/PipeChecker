@@ -201,7 +201,7 @@
     <div class="step-section-label" style="grid-column: span 3">Dependencies</div>
 
     <div class="form-group" style="grid-column: span 3">
-      <label>Requires</label>
+      <label>Follows</label>
       {# JS reads data-init-requires on first render, then tracks DOM state #}
       <div id="step-requires-group-{{ idx }}"
            data-init-requires="{{ requires_list | tojson }}">

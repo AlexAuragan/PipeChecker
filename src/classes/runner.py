@@ -124,10 +124,9 @@ class RemoteLinuxRunner(Runner, ABC):
         while sorter.is_active():
             for step_id in sorter.get_ready():
                 step = steps_by_id[step_id]
-                should_skip = any(
-                    results_by_id[req.step].branch != req.branch
-                    for req in step.requires
-                    if req.step in results_by_id
+                relevant_reqs = [req for req in step.requires if req.step in results_by_id]
+                should_skip = relevant_reqs and not any(
+                    results_by_id[req.step].branch == req.branch for req in relevant_reqs
                 )
                 if should_skip:
                     res = self._skip_step(step)

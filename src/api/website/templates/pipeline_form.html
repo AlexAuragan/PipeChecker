@@ -698,8 +698,8 @@
       group.appendChild(row);
     });
 
-    // Steps available to add: not self, not already required, has ≥1 non-fail branch
-    const available = allSteps.filter(s => s.id !== myId && !reqSet.has(s.id) && s.branches.length > 0);
+    // Steps available to add: not self, has a real ID, not already required, has ≥1 non-fail branch
+    const available = allSteps.filter(s => s.id !== myId && !s.id.startsWith('__new_') && !reqSet.has(s.id) && s.branches.length > 0);
 
     // Inline add-requirement row (hidden until + clicked)
     const addRow = document.createElement('div');
@@ -746,15 +746,16 @@
   function updateRequiresGroups() {
     const stepRows = [...document.querySelectorAll('[id^="step-row-"]')];
 
-    // First pass: collect IDs + current requirement targets to find non-leaf branches
+    // First pass: collect IDs + current requirement targets to find non-leaf branches.
+    // Steps without an ID yet get a placeholder so their requires group still gets rendered.
     const rawSteps = stepRows.map(row => {
       const idx = parseInt(row.id.replace('step-row-', ''));
       const id = (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim();
-      if (!id) return null;
+      const effectiveId = id || `__new_${idx}`;
       const reqTargets = [...row.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
         .map(inp => inp.value); // full "stepId:branch" strings
-      return { idx, id, reqTargets };
-    }).filter(Boolean);
+      return { idx, id: effectiveId, reqTargets };
+    });
     const nonLeafBranches = new Set(rawSteps.flatMap(s => s.reqTargets));
 
     // Set signal selects to 'ok' and hide them for non-leaf branches (before reading branch info)
