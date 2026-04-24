@@ -223,25 +223,41 @@ def build_edges(steps) -> str:
     return json.dumps(edges)
 
 
+_SIGNAL_GROUP = {"ok": "green", "update": "orange", "warning": "orange", "fail": "red", "crashed": "red"}
+
+
+def signal_group(signal) -> str:
+    """Map a pipeline signal to a color group (green/orange/red) for filtering."""
+    s = signal.value if hasattr(signal, "value") else str(signal)
+    return _SIGNAL_GROUP.get(s, "green")
+
+
 def status_badge(status) -> str:
     """Map a job/target status value to a CSS badge class."""
     s = status.value if hasattr(status, "value") else str(status)
     return {
         "completed": "badge-green",
-        "green":     "badge-green",
         "failed":    "badge-red",
-        "red":       "badge-red",
-        "crashed":   "badge-crashed",
-        "orange":    "badge-orange",
         "running":   "badge-blue",
         "pending":   "badge-gray",
         "cancelled": "badge-gray",
+        "ok":        "badge-green",
+        "warning":   "badge-orange",
+        "update":    "badge-blue",
+        "fail":      "badge-red",
+        "crashed":   "badge-crashed",
     }.get(s, "badge-gray")
 
 
 # Maps Status enum values to CSS utility classes used in templates.
-_SIGNAL_CLASS = {"ok": "status-green", "warning": "status-orange", "update": "status-running", "fail": "status-red"}
-_SIGNAL_BADGE = {"ok": "badge-green", "warning": "badge-orange", "update": "badge-blue", "fail": "badge-red"}
+_SIGNAL_CLASS = {
+    "ok": "status-green", "warning": "status-orange", "update": "status-running",
+    "fail": "status-red", "crashed": "status-red",
+}
+_SIGNAL_BADGE = {
+    "ok": "badge-green", "warning": "badge-orange", "update": "badge-blue",
+    "fail": "badge-red", "crashed": "badge-crashed",
+}
 
 
 def step_class(step_result: dict) -> str:
@@ -287,6 +303,7 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 templates.env.filters["tojson"] = lambda v: json.dumps(v)
 templates.env.globals.update(
     status_badge=status_badge,
+    signal_group=signal_group,
     source_badge=source_badge,
     step_class=step_class,
     step_badge=step_badge,

@@ -450,6 +450,14 @@
 
     <button type="button" class="btn-sm" onclick="addStep()" style="margin-top:12px; margin-bottom:8px">+ Add Step</button>
 
+    <!-- ── graph preview ─────────────────────────────────────────── -->
+    <div id="preview-graph-wrap" style="margin-top:28px; display:none">
+      <h2 style="margin-bottom:0">GRAPH PREVIEW</h2>
+      <div class="graph-outer" style="margin-top:12px">
+        <div id="preview-graph-container" class="graph-container" data-edges='[]'></div>
+      </div>
+    </div>
+
     <!-- ── actions ───────────────────────────────────────────────── -->
     <div style="display:flex; gap:14px; align-items:center; margin-top:28px">
       <button type="submit">
@@ -606,73 +614,245 @@
     if (noMatchBadge) noMatchBadge.textContent = rows.length;
   }
 
-  // ── requires groups ────────────────────────────────────────────────────────
+  // ── requires (add-only design) ─────────────────────────────────────────────
+  function _addReqInput(group, idx, stepId, branch) {
+    const exists = [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
+      .some(inp => inp.value.split(':')[0] === stepId);
+    if (exists) return;
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = `step_requires_${idx}`;
+    inp.value = `${stepId}:${branch}`;
+    group.appendChild(inp);
+  }
+
+  function _updateBranchSignalVisibility(idx, id, nonLeafBranches) {
+    // Binary branches: two selects in order, indices 0 and 1
+    const binDiv = document.getElementById('binary-branches-' + idx);
+    if (binDiv) {
+      [...binDiv.querySelectorAll(`[name="step_branch_signals_${idx}"]`)].forEach((sel, branchIdx) => {
+        const isNonLeaf = nonLeafBranches.has(`${id}:${branchIdx}`);
+        if (isNonLeaf) { sel.value = 'ok'; sel.dataset.signal = 'ok'; sel.style.display = 'none'; }
+        else { sel.style.display = ''; }
+        const noteId = `branch-routing-note-${idx}-${branchIdx}`;
+        const container = sel.parentElement;
+        let note = container?.querySelector(`#${noteId}`);
+        if (isNonLeaf && !note && container) {
+          note = document.createElement('span');
+          note.id = noteId;
+          note.style.cssText = 'font-size:10px; color:var(--ink-light); font-style:italic; margin-left:6px';
+          note.textContent = '(routing)';
+          container.appendChild(note);
+        } else if (!isNonLeaf && note) { note.remove(); }
+      });
+    }
+    // Pattern branches: each select in .pattern-row or .no-match-row
+    const patDiv = document.getElementById('pattern-branches-' + idx);
+    if (patDiv) {
+      patDiv.querySelectorAll('.pattern-row, .no-match-row').forEach(row => {
+        const badge = row.querySelector('.branch-badge[data-bbadge]');
+        const branchIdx = badge ? parseInt(badge.textContent.trim()) : 0;
+        const sel = row.querySelector(`[name="step_branch_signals_${idx}"]`);
+        if (!sel) return;
+        const isNonLeaf = nonLeafBranches.has(`${id}:${branchIdx}`);
+        if (isNonLeaf) { sel.value = 'ok'; sel.dataset.signal = 'ok'; sel.style.display = 'none'; }
+        else { sel.style.display = ''; }
+        const noteId = `branch-routing-note-${idx}-${branchIdx}`;
+        let note = row.querySelector(`#${noteId}`);
+        if (isNonLeaf && !note) {
+          note = document.createElement('span');
+          note.id = noteId;
+          note.style.cssText = 'font-size:10px; color:var(--ink-light); font-style:italic; margin-left:6px';
+          note.textContent = '(routing)';
+          sel.parentElement?.appendChild(note);
+        } else if (!isNonLeaf && note) { note.remove(); }
+      });
+    }
+  }
+
+  function _rebuildRequiresUI(idx, myId, allSteps, stepMap, group) {
+    const reqs = [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)].map(inp => {
+      const parts = inp.value.split(':');
+      return { stepId: parts[0], branch: parseInt(parts[1]) || 0 };
+    });
+    const reqSet = new Set(reqs.map(r => r.stepId));
+
+    // Remove visible children, keep hidden inputs
+    [...group.children].filter(c => c.type !== 'hidden').forEach(c => c.remove());
+
+    // One row per current requirement — branch shown as an inline select
+    reqs.forEach(req => {
+      const dep = stepMap[req.stepId];
+      const branchOptions = dep?.branches.map(b =>
+        `<option value="${b.index}"${b.index === req.branch ? ' selected' : ''}>${escHtml(b.name)}</option>`
+      ).join('') || `<option value="${req.branch}">branch ${req.branch}</option>`;
+      const row = document.createElement('div');
+      row.className = 'requires-row';
+      row.innerHTML =
+        `<code>${escHtml(req.stepId)}</code>` +
+        `<span class="when-label">→ when</span>` +
+        `<select style="font-size:11px;max-width:120px"` +
+        ` onchange="onReqBranchChange(${idx},'${escHtml(req.stepId)}',this)">${branchOptions}</select>` +
+        `<button type="button" class="btn-sm btn-remove" style="margin-left:auto"` +
+        ` onclick="removeRequirement(${idx},'${escHtml(req.stepId)}')">✕</button>`;
+      group.appendChild(row);
+    });
+
+    // Steps available to add: not self, not already required, has ≥1 non-fail branch
+    const available = allSteps.filter(s => s.id !== myId && !reqSet.has(s.id) && s.branches.length > 0);
+
+    // Inline add-requirement row (hidden until + clicked)
+    const addRow = document.createElement('div');
+    addRow.id = `req-add-row-${idx}`;
+    addRow.className = 'requires-row';
+    Object.assign(addRow.style, { display: 'none', flexWrap: 'wrap', gap: '6px', marginTop: '4px' });
+
+    const stepSel = document.createElement('select');
+    stepSel.id = `req-step-sel-${idx}`;
+    stepSel.style.cssText = 'font-size:11px; flex:1; min-width:100px';
+    stepSel.innerHTML = `<option value="">— step —</option>` +
+      available.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.id)}</option>`).join('');
+    stepSel.addEventListener('change', () => onReqStepChange(idx));
+
+    const branchSel = document.createElement('select');
+    branchSel.id = `req-branch-sel-${idx}`;
+    branchSel.style.cssText = 'font-size:11px; max-width:130px';
+    branchSel.innerHTML = '<option value="">—</option>';
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button'; confirmBtn.className = 'btn-sm'; confirmBtn.textContent = 'Add';
+    confirmBtn.addEventListener('click', () => confirmAddRequirement(idx));
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button'; cancelBtn.className = 'btn-sm btn-remove'; cancelBtn.textContent = '✕';
+    cancelBtn.addEventListener('click', () => cancelAddRequirement(idx));
+
+    addRow.append(stepSel, branchSel, confirmBtn, cancelBtn);
+    group.appendChild(addRow);
+
+    // + Add button (hidden when no steps are available to add)
+    const plusBtn = document.createElement('button');
+    plusBtn.type = 'button'; plusBtn.id = `req-add-btn-${idx}`;
+    plusBtn.className = 'btn-sm'; plusBtn.textContent = '+ Add';
+    plusBtn.style.cssText = 'margin-top:4px; font-size:11px';
+    if (!available.length) plusBtn.style.display = 'none';
+    plusBtn.addEventListener('click', () => showAddRequirementRow(idx));
+    group.appendChild(plusBtn);
+
+    // Re-open add row if it was open before the rebuild
+    if (group.dataset.addOpen === '1') showAddRequirementRow(idx);
+  }
+
   function updateRequiresGroups() {
-    const allSteps = [...document.querySelectorAll('[id^="step-row-"]')].map(row => {
+    const stepRows = [...document.querySelectorAll('[id^="step-row-"]')];
+
+    // First pass: collect IDs + current requirement targets to find non-leaf branches
+    const rawSteps = stepRows.map(row => {
       const idx = parseInt(row.id.replace('step-row-', ''));
       const id = (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim();
-      return {idx, id, branches: getStepBranchInfo(idx)};
-    }).filter(s => s.id);
+      if (!id) return null;
+      const reqTargets = [...row.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
+        .map(inp => inp.value); // full "stepId:branch" strings
+      return { idx, id, reqTargets };
+    }).filter(Boolean);
+    const nonLeafBranches = new Set(rawSteps.flatMap(s => s.reqTargets));
 
-    allSteps.forEach(({idx, id}) => {
+    // Set signal selects to 'ok' and hide them for non-leaf branches (before reading branch info)
+    rawSteps.forEach(({ idx, id }) => _updateBranchSignalVisibility(idx, id, nonLeafBranches));
+
+    const allSteps = rawSteps.map(({ idx, id }) => ({ idx, id, branches: getStepBranchInfo(idx) }));
+    const stepMap = Object.fromEntries(allSteps.map(s => [s.id, s]));
+
+    allSteps.forEach(({ idx, id }) => {
       const group = document.getElementById('step-requires-group-' + idx);
       if (!group) return;
 
-      // Preserve current selections from DOM; fall back to data attribute on first render
-      const curReqs = {};
-      const existingRows = group.querySelectorAll('.requires-row');
-      if (existingRows.length > 0) {
-        existingRows.forEach(rrow => {
-          const cb = rrow.querySelector('input[type="checkbox"]');
-          const sel = rrow.querySelector('select');
-          const stepId = cb?.dataset.stepId;
-          if (stepId) curReqs[stepId] = {checked: !!cb?.checked, branch: parseInt(sel?.value ?? 0) || 0};
-        });
-      } else {
+      // Seed hidden inputs from data attribute on first render
+      if (!group.dataset.reqsInited) {
+        group.dataset.reqsInited = '1';
         try {
-          JSON.parse(group.dataset.initRequires || '[]')
-            .forEach(r => { curReqs[r.step] = {checked: true, branch: r.branch}; });
+          JSON.parse(group.dataset.initRequires || '[]').forEach(r => {
+            if (r.step !== id) _addReqInput(group, idx, r.step, r.branch);
+          });
         } catch {}
       }
 
-      const others = allSteps.filter(s => s.id !== id);
-      if (!others.length) {
-        group.innerHTML = '<span class="hint" style="font-size:12px">No other steps defined yet.</span>';
-        return;
-      }
+      // Remove hidden inputs for steps that no longer exist or whose branch became fail
+      group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`).forEach(inp => {
+        const [stepId, branchStr] = inp.value.split(':');
+        const dep = stepMap[stepId];
+        if (!dep) { inp.remove(); return; }
+        if (!dep.branches.some(b => b.index === (parseInt(branchStr) || 0))) inp.remove();
+      });
 
-      group.innerHTML = others.map(other => {
-        const cur = curReqs[other.id] || {checked: false, branch: 0};
-        const selBranch = other.branches.some(b => b.index === cur.branch) ? cur.branch : (other.branches[0]?.index ?? 0);
-        const options = other.branches.map(b =>
-          `<option value="${b.index}"${b.index === selBranch ? ' selected' : ''}>${escHtml(b.name)}</option>`
-        ).join('');
-        return `<div class="requires-row">` +
-          `<input type="checkbox" name="step_requires_${idx}"` +
-          ` value="${escHtml(other.id)}:${selBranch}"` +
-          ` data-step-id="${escHtml(other.id)}"` +
-          ` onchange="onRequiresToggle(${idx},'${escHtml(other.id)}',this)"` +
-          (cur.checked ? ' checked' : '') + `>` +
-          `<code>${escHtml(other.id)}</code>` +
-          `<span class="when-label">→ when</span>` +
-          `<select onchange="onRequiresBranchChange(${idx},'${escHtml(other.id)}',this)"` +
-          ` style="flex:0 0 auto;max-width:90px;font-size:11px;padding:2px 4px">${options}</select>` +
-          `</div>`;
-      }).join('');
+      _rebuildRequiresUI(idx, id, allSteps, stepMap, group);
     });
+    renderPreviewGraph();
   }
 
-  function onRequiresToggle(idx, stepId, cb) {
-    const sel = cb.closest('.requires-row').querySelector('select');
-    onRequiresBranchChange(idx, stepId, sel);
-  }
-
-  function onRequiresBranchChange(idx, stepId, sel) {
-    if (!sel) return;
-    const branch = parseInt(sel.value) || 0;
+  function showAddRequirementRow(idx) {
     const group = document.getElementById('step-requires-group-' + idx);
-    const cb = group?.querySelector(`input[type="checkbox"][data-step-id="${stepId}"]`);
-    if (cb) cb.value = stepId + ':' + branch;
+    if (group) group.dataset.addOpen = '1';
+    const addRow = document.getElementById(`req-add-row-${idx}`);
+    const plusBtn = document.getElementById(`req-add-btn-${idx}`);
+    if (addRow) addRow.style.display = '';
+    if (plusBtn) plusBtn.style.display = 'none';
+  }
+
+  function cancelAddRequirement(idx) {
+    const group = document.getElementById('step-requires-group-' + idx);
+    if (group) group.dataset.addOpen = '';
+    const addRow = document.getElementById(`req-add-row-${idx}`);
+    const plusBtn = document.getElementById(`req-add-btn-${idx}`);
+    if (addRow) addRow.style.display = 'none';
+    if (plusBtn) plusBtn.style.display = '';
+  }
+
+  function onReqStepChange(idx) {
+    const stepSel   = document.getElementById(`req-step-sel-${idx}`);
+    const branchSel = document.getElementById(`req-branch-sel-${idx}`);
+    if (!stepSel || !branchSel) return;
+    const stepId = stepSel.value;
+    if (!stepId) { branchSel.innerHTML = '<option value="">—</option>'; return; }
+    const depRow = [...document.querySelectorAll('[id^="step-row-"]')].find(r => {
+      const ridx = parseInt(r.id.replace('step-row-', ''));
+      return (r.querySelector(`[name="step_id_${ridx}"]`)?.value || '').trim() === stepId;
+    });
+    if (!depRow) { branchSel.innerHTML = ''; return; }
+    const ridx = parseInt(depRow.id.replace('step-row-', ''));
+    branchSel.innerHTML = getStepBranchInfo(ridx)
+      .map(b => `<option value="${b.index}">${escHtml(b.name)}</option>`).join('');
+  }
+
+  function confirmAddRequirement(idx) {
+    const stepSel   = document.getElementById(`req-step-sel-${idx}`);
+    const branchSel = document.getElementById(`req-branch-sel-${idx}`);
+    const stepId = stepSel?.value;
+    if (!stepId) return;
+    const branch = parseInt(branchSel?.value ?? 0) || 0;
+    const group = document.getElementById('step-requires-group-' + idx);
+    if (!group) return;
+    _addReqInput(group, idx, stepId, branch);
+    group.dataset.addOpen = '';
+    updateRequiresGroups();
+  }
+
+  function removeRequirement(idx, stepId) {
+    const group = document.getElementById('step-requires-group-' + idx);
+    if (!group) return;
+    [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
+      .filter(inp => inp.value.split(':')[0] === stepId)
+      .forEach(inp => inp.remove());
+    updateRequiresGroups();
+  }
+
+  function onReqBranchChange(idx, stepId, sel) {
+    const group = document.getElementById('step-requires-group-' + idx);
+    if (!group) return;
+    const inp = [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
+      .find(i => i.value.split(':')[0] === stepId);
+    if (inp) inp.value = `${stepId}:${parseInt(sel.value) || 0}`;
+    updateRequiresGroups();
   }
 
   // ── add step (HTMX) ────────────────────────────────────────────────────────
@@ -685,11 +865,11 @@
     htmx.ajax('GET', '/step-row?index=' + stepCount + '&steps=' + encodeURIComponent(ids), {
       target: '#steps-list',
       swap: 'beforeend',
-    }).then(() => updateRequiresGroups());
+    }).then(() => { updateRequiresGroups(); renderPreviewGraph(); });
     stepCount++;
   }
 
-  document.addEventListener('DOMContentLoaded', updateRequiresGroups);
+  document.addEventListener('DOMContentLoaded', () => { updateRequiresGroups(); renderPreviewGraph(); });
 
   // Disable inputs in hidden branch sections before submit so only the active
   // section's names and signals are included in the form data.
@@ -749,6 +929,81 @@
   function setCron(expr) {
     document.getElementById('cron-input').value = expr;
     closeCronPopover();
+  }
+
+  // ── graph preview ─────────────────────────────────────────────────────────
+  function renderPreviewGraph() {
+    const container = document.getElementById('preview-graph-container');
+    const wrap      = document.getElementById('preview-graph-wrap');
+    if (!container || !wrap) return;
+
+    // Gather steps from DOM
+    const rows = [...document.querySelectorAll('[id^="step-row-"]')];
+    const steps = rows.map(row => {
+      const idx = parseInt(row.id.replace('step-row-', ''));
+      const id = (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim();
+      if (!id) return null;
+      const isScript = document.getElementById('exec-scr-' + idx)?.checked;
+      const exec = isScript
+        ? (row.querySelector(`[name="step_exec_script_${idx}"]`)?.value || '')
+        : (row.querySelector(`[name="step_exec_command_${idx}"]`)?.value || '');
+      const checkMethod = row.querySelector(`[name="step_check_method_${idx}"]`)?.value || '';
+      const requires = [];
+      row.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`).forEach(inp => {
+        const parts = inp.value.split(':');
+        if (parts.length >= 2) requires.push({ step: parts[0], branch: parseInt(parts[1]) || 0 });
+      });
+      return { id, exec: exec.trim(), checkMethod, requires };
+    }).filter(Boolean);
+
+    wrap.style.display = steps.length ? '' : 'none';
+    if (!steps.length) return;
+
+    // Which steps are required by others (non-leaf)
+    const allRequired = new Set(steps.flatMap(s => s.requires.map(r => r.step)));
+
+    // Topological column depths
+    const stepMap = Object.fromEntries(steps.map(s => [s.id, s]));
+    const depths = {};
+    function getDepth(id, visited = new Set()) {
+      if (id in depths) return depths[id];
+      if (visited.has(id)) return (depths[id] = 0);
+      visited.add(id);
+      const step = stepMap[id];
+      depths[id] = !step || !step.requires.length
+        ? 0
+        : Math.max(...step.requires.map(r => getDepth(r.step, visited) + 1));
+      return depths[id];
+    }
+    steps.forEach(s => getDepth(s.id));
+
+    const numCols = Math.max(...Object.values(depths)) + 1;
+    const columns = Array.from({ length: numCols }, () => []);
+    steps.forEach(s => columns[depths[s.id] || 0].push(s));
+
+    // Edges
+    const edges = steps.flatMap(s =>
+      s.requires.map(r => ({ from: r.step, branch: r.branch, to: s.id }))
+    );
+
+    // Render nodes
+    container.dataset.edges = JSON.stringify(edges);
+    container.innerHTML = columns.map((col, i) =>
+      `<div class="graph-column">` +
+      `<div class="graph-col-label">Stage ${i}</div>` +
+      col.map(s => {
+        const isLeaf = !allRequired.has(s.id);
+        const statusLine = (isLeaf ? '' : 'branch · ') + escHtml(s.checkMethod || '…');
+        return `<div class="step-node" data-step-id="${escHtml(s.id)}">` +
+          `<div class="step-node-id">${escHtml(s.id)}</div>` +
+          `<div class="step-node-cmd" title="${escHtml(s.exec)}">${escHtml(s.exec || '…')}</div>` +
+          `<div class="step-node-status" style="color:var(--ink-light)">${statusLine}</div>` +
+          `</div>`;
+      }).join('') +
+      `</div>`
+    ).join('');
+
+    drawGraphs();
   }
 
   // ── connector / runner lock ───────────────────────────────────────────────

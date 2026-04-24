@@ -143,7 +143,13 @@
       {% for job in pipeline_jobs %}
       <tr>
         <td><a href="/job/{{ job.id }}" style="font-size:11px">{{ job.id }}</a></td>
-        <td><span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span></td>
+        <td>
+          {% if job.status.value == 'completed' and job.signal %}
+            <span class="badge {{ status_badge(job.signal) }}">{{ job.signal }}</span>
+          {% else %}
+            <span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span>
+          {% endif %}
+        </td>
         <td><span class="badge {{ source_badge(job.source) }}">{{ job.source.value }}</span></td>
         <td style="font-size:11px; color:var(--ink-mid)">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
       </tr>

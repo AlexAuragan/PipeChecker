@@ -45,7 +45,7 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
             target_id=str(result.target.id),
             target_name=result.target.name,
             pipeline_name=result.pipeline_name,
-            status=result.status,
+            status=result.status.value,
             duration=result.duration,
         )
         session.add(pr)
@@ -237,15 +237,22 @@ def delete_cancelled_jobs() -> None:
     _cancelled.difference_update(ids)
 
 
+_SIGNAL_SEVERITY: dict[str, int] = {"ok": 0, "update": 1, "warning": 2, "fail": 3, "crashed": 4}
+
+
 def list_jobs() -> list[dict]:
     with Session(engine) as session:
-        jobs = session.exec(select(Job).order_by(Job.created_at.desc())).all()
-        return [
-            {
+        all_jobs = session.exec(select(Job).order_by(Job.created_at.desc())).all()
+        result = []
+        for job in all_jobs:
+            signals = [pr.status for pr in job.results]
+            worst = max(signals, key=lambda s: _SIGNAL_SEVERITY.get(s, 0)) if signals else None
+            result.append({
                 "id": job.id,
                 "pipeline_name": job.pipeline_name,
                 "status": job.status,
+                "signal": worst,
                 "source": job.source,
                 "created_at": job.created_at,
-            } for job in jobs
-        ]
+            })
+        return result

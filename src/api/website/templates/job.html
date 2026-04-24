@@ -138,7 +138,7 @@
       {% set target_name = tr.target_name %}
       {% set t_status    = tr.t_status %}
       {% set step_results = tr.step_results %}
-      <div class="target-section ts-{{ t_status }}">
+      <div class="target-section ts-{{ signal_group(t_status) }}">
         {% include "_target_body.html" %}
       </div>
       {% endfor %}

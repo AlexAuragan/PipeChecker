@@ -6,6 +6,7 @@ class Status(str, Enum):
     warning = "warning"
     update = "update"
     fail = "fail"
+    crashed = "crashed"
 
 
 class ConnectorType(str, Enum):

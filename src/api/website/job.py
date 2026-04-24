@@ -64,6 +64,11 @@ def job_page(request: Request, job_id: UUID):
     pipeline, group = utils.get_pipeline_or_404(job["pipeline_name"], None)
     columns = compute_columns(pipeline.pipeline)
     edges = build_edges(pipeline.pipeline)
+    non_leaf_branches = frozenset(
+        (req.step, req.branch)
+        for step in pipeline.pipeline
+        for req in step.requires
+    )
 
     target_results = [
         {
@@ -76,10 +81,10 @@ def job_page(request: Request, job_id: UUID):
         for result in job["results"]
     ]
 
-    status_counts = {"green": 0, "red": 0}
+    from src.api.website.utils import signal_group
+    status_counts = {"green": 0, "orange": 0, "red": 0}
     for tr in target_results:
-        if tr["t_status"] in status_counts:
-            status_counts[tr["t_status"]] += 1
+        status_counts[signal_group(tr["t_status"])] += 1
 
     is_live = str(job["status"].value) in ("pending", "running")
     crash_reason = job.get("crash_reason")
@@ -96,6 +101,7 @@ def job_page(request: Request, job_id: UUID):
             "columns": columns,
             "edges": edges,
             "target_results": target_results,
+            "non_leaf_branches": non_leaf_branches,
             "status_counts": status_counts,
             "is_live": is_live,
             "crash_reason": crash_reason,

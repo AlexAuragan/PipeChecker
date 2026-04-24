@@ -91,3 +91,6 @@ Commercial use is not permitted.
    * [ ] Long term view
  * [ ] Set gravity for each pipeline or step (if it fails is it an error or just a warning ?)
  * [ ] Set up notification system (webhook, rss).
+ * [ ] Display info on step hover 
+ * [ ] Login method
+ * [ ] Targets should be lazy loaded (loaded when a pipeline is run) and cached.

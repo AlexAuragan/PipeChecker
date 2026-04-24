@@ -108,7 +108,14 @@ class RemoteLinuxRunner(Runner, ABC):
 
     @override
     def run_pipeline(self) -> r.PipelineResult:
+        import traceback
         steps_by_id = {step.id: step for step in self.pipeline.pipeline}
+        non_leaf_branches = frozenset(
+            (req.step, req.branch)
+            for step in self.pipeline.pipeline
+            for req in step.requires
+        )
+
         sorter = TopologicalSorter(self.execution_graph)
         sorter.prepare()
 
@@ -125,7 +132,14 @@ class RemoteLinuxRunner(Runner, ABC):
                 if should_skip:
                     res = self._skip_step(step)
                 else:
-                    res = self._run_step(step)
+                    try:
+                        res = self._run_step(step)
+                    except Exception:
+                        res = r.StepResult(
+                            target_id=self.target.id, step_id=step_id,
+                            signal=Status.crashed, stdout="", stderr=traceback.format_exc(),
+                            branch=-1, skipped=False, duration=0,
+                        )
                 results_by_id[step_id] = res
                 sorter.done(step_id)
         pipes_results = {step.id: results_by_id[step.id] for step in self.pipeline.pipeline}
@@ -134,7 +148,8 @@ class RemoteLinuxRunner(Runner, ABC):
             target=self.target,
             pipeline_name=self.pipeline.name,
             steps=pipes_results,
-            duration=end - start
+            duration=end - start,
+            non_leaf_branches=non_leaf_branches,
         )
 
 

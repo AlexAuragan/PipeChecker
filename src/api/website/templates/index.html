@@ -34,7 +34,11 @@
         <td>
           {% if job %}
             <a href="/job/{{ job.id }}">
-              <span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span>
+              {% if job.status.value == 'completed' and job.signal %}
+                <span class="badge {{ status_badge(job.signal) }}">{{ job.signal }}</span>
+              {% else %}
+                <span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span>
+              {% endif %}
             </a>
             <span style="color:var(--ink-light); font-size:11px; margin-left:8px">
               {{ job.created_at.strftime('%Y-%m-%d %H:%M') }}
@@ -80,7 +84,13 @@
       <tr>
         <td><a href="/job/{{ job.id }}" style="font-size:11px">{{ job.id | string | truncate(16, True, '') }}</a></td>
         <td><a href="/pipeline/{{ job.pipeline_name }}">{{ job.pipeline_name }}</a></td>
-        <td><span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span></td>
+        <td>
+          {% if job.status.value == 'completed' and job.signal %}
+            <span class="badge {{ status_badge(job.signal) }}">{{ job.signal }}</span>
+          {% else %}
+            <span class="badge {{ status_badge(job.status) }}">{{ job.status.value }}</span>
+          {% endif %}
+        </td>
         <td><span class="badge {{ source_badge(job.source) }}">{{ job.source.value }}</span></td>
         <td style="font-size:11px; color:var(--ink-mid)">{{ job.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
       </tr>
