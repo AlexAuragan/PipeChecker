@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — PipeChecker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #f0f2ff;
+      --surface:   #ffffff;
+      --ink:       #12133a;
+      --ink-mid:   #4a4c72;
+      --ink-light: #9496be;
+      --accent:    #4361ee;
+      --accent-bg: #eef0ff;
+      --border:    #dddff5;
+      --r:         #dc2626;
+      --r-bg:      #fff1f2;
+      --sh-accent: 3px 3px 0 #c7caff;
+    }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+      box-shadow: var(--sh-accent);
+      padding: 40px 44px;
+      width: 100%;
+      max-width: 380px;
+    }
+    .logo {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+      text-align: center;
+      display: block;
+      margin-bottom: 28px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .02em;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+    label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--ink-light);
+    }
+    input[type="text"], input[type="password"] {
+      border: 2px solid var(--ink);
+      background: var(--surface);
+      color: var(--ink);
+      padding: 9px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      width: 100%;
+      border-top-left-radius:     255px 10px;
+      border-top-right-radius:    10px 200px;
+      border-bottom-right-radius: 200px 10px;
+      border-bottom-left-radius:  10px 200px;
+      outline: none;
+      box-shadow: var(--sh-accent);
+    }
+    input:focus { box-shadow: 5px 5px 0 #c7caff; }
+    button[type="submit"] {
+      width: 100%;
+      background: var(--ink);
+      color: var(--surface);
+      border: 2.5px solid var(--ink);
+      padding: 9px 20px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      cursor: pointer;
+      border-top-left-radius:     255px 15px;
+      border-top-right-radius:    15px 225px;
+      border-bottom-right-radius: 225px 15px;
+      border-bottom-left-radius:  15px 255px;
+      box-shadow: var(--sh-accent);
+      transition: box-shadow .12s, transform .12s;
+      margin-top: 8px;
+    }
+    button[type="submit"]:hover {
+      box-shadow: 5px 5px 0 #c7caff;
+      transform: translate(-1px, -1px);
+    }
+    .error-box {
+      background: var(--r-bg);
+      border: 2px solid var(--r);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: var(--r);
+      font-size: 12px;
+      margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="logo">PIPECHECKER</span>
+    <h1>Sign in</h1>
+
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+
+      <button type="submit">Sign in →</button>
+    </form>
+  </div>
+</body>
+</html>

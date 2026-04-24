@@ -1,15 +1,16 @@
-from fastapi import Request, APIRouter
+from fastapi import Request, APIRouter, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
 from src.api import utils
+from src.api.web_auth import require_web_auth
 from src.api.website.utils import (
     available_connectors, parse_pipeline_form, steps_from_form,
     form_base_ctx, compute_columns, build_edges, templates,
 )
 from src.core import jobs, storage as _storage
 
-router = APIRouter(tags=["pipeline"])
+router = APIRouter(tags=["pipeline"], dependencies=[Depends(require_web_auth)])
 
 
 def _validation_errors(exc: ValidationError | ValueError) -> list[str]:

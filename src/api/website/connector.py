@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
 from src.api import utils
+from src.api.web_auth import require_web_auth
 from src.api.website.utils import connector_form_data, parse_connector_form, templates
 from src.classes.connectors import ConnectorType
 from src.core import storage
 
 
-router = APIRouter(tags=["connector"])
+router = APIRouter(tags=["connector"], dependencies=[Depends(require_web_auth)])
 
 
 @router.get("", response_class=HTMLResponse)

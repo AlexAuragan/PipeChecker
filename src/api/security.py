@@ -19,7 +19,5 @@ def _verify_key(key: str, stored: str) -> bool:
 
 async def require_api_key(key: str = Security(api_key_header)):
     stored = os.getenv("PIPECHECKER_API_KEY_HASH")
-    if stored is None:
-        return  # auth disabled (dev mode)
-    if not key or not _verify_key(key, stored):
+    if not key or not stored or not _verify_key(key, stored):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)

@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from src.api import utils
+from src.api.web_auth import require_web_auth
 from src.api.website.utils import templates, list_scripts
 from src.classes.pipeline import CheckMethod
 from src.core import jobs
 
-router = APIRouter(tags=["web"])
+router = APIRouter(tags=["web"], dependencies=[Depends(require_web_auth)])
 
 # ── routes ────────────────────────────────────────────────────────────────────
 

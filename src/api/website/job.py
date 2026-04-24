@@ -5,6 +5,7 @@ from fastapi.params import Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.api import utils
+from src.api.web_auth import require_web_auth
 from src.api.website.utils import compute_columns, build_edges, templates
 from src.classes.connectors import Manager
 from src.core import jobs
@@ -13,7 +14,7 @@ from src.core.database import JobSource
 # Substrings that indicate an SSH/authentication failure in a crash traceback.
 _SSH_MARKERS = ("paramiko", "AuthenticationException", "NoValidConnectionsError", "ssh_exception")
 
-router = APIRouter(tags=["job"])
+router = APIRouter(tags=["job"], dependencies=[Depends(require_web_auth)])
 
 
 @router.post("/run/{name}")

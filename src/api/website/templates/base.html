@@ -539,6 +539,11 @@
     <a href="/">Pipelines</a>
     <a href="/connector">Connectors</a>
     <a href="/script">Scripts</a>
+    <form method="post" action="/logout" style="margin-left:auto">
+      <button type="submit" style="background:transparent;border:1.5px solid var(--border);color:var(--ink-light);padding:4px 14px;font-size:11px;box-shadow:none;font-weight:600;letter-spacing:.04em">
+        Logout
+      </button>
+    </form>
   </nav>
   <main>
     {% block content %}{% endblock %}

@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
+from src.api.web_auth import require_web_auth
 from src.api.website.utils import list_scripts, templates
 from src.config import SCRIPTS_FOLDER, ALLOWED_SCRIPT_EXTENSIONS
 
-router = APIRouter(tags=["scripts"])
+router = APIRouter(tags=["scripts"], dependencies=[Depends(require_web_auth)])
 
 @router.get("/content")
 def script_content(path: str):

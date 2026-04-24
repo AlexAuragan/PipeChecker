@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 import traceback
 from contextlib import asynccontextmanager
 from uuid import UUID
@@ -42,8 +44,24 @@ async def initial_load(app: FastAPI) -> None:
         app.state.ready = True
 
 
+def _check_credentials() -> None:
+    missing = []
+    if not os.getenv("PIPECHECKER_API_KEY_HASH"):
+        missing.append("PIPECHECKER_API_KEY_HASH  (run: python cli.py generate-key)")
+    if not os.getenv("PIPECHECKER_WEB_PASSWORD_HASH"):
+        missing.append("PIPECHECKER_WEB_PASSWORD_HASH  (run: python cli.py generate-web-password)")
+    if missing:
+        print("ERROR: The following required environment variables are not set:")
+        for m in missing:
+            print(f"  • {m}")
+        print("Run 'python cli.py setup' to generate and save all credentials at once.")
+        sys.exit(1)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _check_credentials()
+
     app.state.manager = None
     app.state.ready = False
 
