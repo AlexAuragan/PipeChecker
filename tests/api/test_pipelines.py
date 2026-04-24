@@ -32,9 +32,13 @@ def client(api_key):
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _req(step_id: str, branch: int = 0) -> dict:
+    return {"step": step_id, "branch": branch}
+
+
 def _step(step_id="new-step", exec_cmd="which bash",
-          check_method="stdout_not_empty", if_failed=None, requires=None):
-    body = {"id": step_id, "exec": exec_cmd, "check_method": check_method, "if_failed": if_failed}
+          check_method="stdout_not_empty", requires=None):
+    body = {"id": step_id, "exec": exec_cmd, "check_method": check_method}
     if requires:
         body["requires"] = requires
     return body
@@ -136,7 +140,7 @@ class TestCreatePipeline:
     def test_unknown_requires_rejected(self, client):
         body = {
             "name": "bad-requires",
-            "pipeline": [_step(requires=["ghost-step"])],
+            "pipeline": [_step(requires=[_req("ghost-step")])],
         }
         r = client.post(PREFIX, json=body)
         assert r.status_code == 422
@@ -197,17 +201,23 @@ class TestAddStep:
         assert "extra-step" in ids
 
     def test_add_step_with_valid_requires(self, client):
-        new = _step("depends-on-curl", requires=["curl-installed"])
+        new = _step("depends-on-curl", requires=[_req("curl-installed", branch=0)])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         print(r.content)
         assert r.status_code == 200
+
+    def test_add_step_requiring_fail_branch_rejected(self, client):
+        # Branch 1 of a binary step defaults to signal 'fail' — cannot be required.
+        new = _step("on-fail-branch", requires=[_req("curl-installed", branch=1)])
+        r = client.post(f"{PREFIX}/curl/steps", json=new)
+        assert r.status_code in (400, 422)
 
     def test_add_duplicate_id_rejected(self, client):
         r = client.post(f"{PREFIX}/curl/steps", json=_step("curl-installed"))
         assert r.status_code == 422
 
     def test_add_step_unknown_requires_rejected(self, client):
-        new = _step("broken", requires=["nonexistent"])
+        new = _step("broken", requires=[_req("nonexistent")])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         assert r.status_code == 422
 
@@ -245,9 +255,21 @@ class TestEditStep:
         assert r.status_code == 404
 
     def test_edit_requires_to_unknown_rejected(self, client):
-        patch = {"requires": ["nonexistent"]}
+        patch = {"requires": [_req("nonexistent")]}
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json=patch)
         assert r.status_code == 422
+
+    def test_edit_check_patterns(self, client):
+        # First add a step with a pattern-based check
+        new = _step("pattern-step", exec_cmd="echo hello", check_method="stdout_contains")
+        new["check_patterns"] = ["hello"]
+        client.post(f"{PREFIX}/curl/steps", json=new)
+        # Now patch to update patterns
+        patch = {"check_patterns": ["hello", "world"]}
+        r = client.patch(f"{PREFIX}/curl/steps/pattern-step", json=patch)
+        assert r.status_code == 200
+        step = next(s for s in r.json()["pipeline"] if s["id"] == "pattern-step")
+        assert step["check_patterns"] == ["hello", "world"]
 
 
 # ---------------------------------------------------------------------------
@@ -275,13 +297,12 @@ class TestRemoveStep:
         assert r.status_code == 404
 
     def test_remove_last_step_rejected(self, client):
-        # Pipeline must have at least one step
         r = client.delete(f"{PREFIX}/curl/steps/curl-installed")
         assert r.status_code == 422
 
     def test_remove_required_step_rejected(self, client):
         # Add a step that depends on curl-installed, then try to delete curl-installed
-        client.post(f"{PREFIX}/curl/steps", json=_step("needs-curl", requires=["curl-installed"]))
+        client.post(f"{PREFIX}/curl/steps", json=_step("needs-curl", requires=[_req("curl-installed")]))
         r = client.delete(f"{PREFIX}/curl/steps/curl-installed")
         print(r.content)
         assert r.status_code == 409

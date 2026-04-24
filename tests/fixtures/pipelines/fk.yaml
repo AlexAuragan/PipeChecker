@@ -8,7 +8,6 @@ pipelines:
       - id: curl-installed
         exec: which curl
         check_method: stdout_not_empty
-        if_failed: apt install curl -y
   - name: File-keeper
     runner: proxmox_ct
     cron: 0 10,18 * * *
@@ -16,4 +15,3 @@ pipelines:
       - id: fk-installed
         exec: which fk
         check_method: stdout_not_empty
-        if_failed: curl -sSL https://raw.githubusercontent.com/AlexAuragan/file-keeper/main/install.sh | bash

@@ -1,4 +1,24 @@
-{% set exec_method = step.exec_method if step else 'command' %}
+{% set exec_method      = step.exec_method  if step else 'command' %}
+{% set check_method_val = step.check_method if step else 'exit_code' %}
+{% set show_patterns    = check_method_val in ('stdout_regex', 'stdout_contains', 'finish_in_less_than') %}
+{% set check_patterns   = (step.check_patterns or []) if step else [] %}
+{% set branches_list    = (step.branches      or []) if step else [] %}
+{% set requires_list    = (step.requires      or []) if step else [] %}
+{% set own_id           = step.id if step else '' %}
+
+{# Helper macro: render a signal <select> for a given branch index #}
+{% macro signal_select(idx, branch_idx, default_signal) %}
+  {% set cur = branches_list[branch_idx] if branch_idx < (branches_list | length) else none %}
+  {% set sig = (cur.signal if cur is not none else default_signal) | string %}
+  <select name="step_branch_signals_{{ idx }}"
+          class="signal-select" data-signal="{{ sig }}"
+          onchange="onSignalChange(this)">
+    {% for s in ['ok', 'warning', 'update', 'fail'] %}
+    <option value="{{ s }}" {% if sig == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+
 <div class="step-row" id="step-row-{{ idx }}">
   <div class="step-row-header">
     <span class="step-row-label">Step {{ idx + 1 }}</span>
@@ -7,16 +27,20 @@
   </div>
 
   <div class="form-grid">
-    <div class="form-group">
+
+    {# ── ID ─────────────────────────────────────────────────────────────────── #}
+    <div class="form-group" style="grid-column: span 3">
       <label>ID <span style="color:var(--r)">*</span></label>
       <input type="text" name="step_id_{{ idx }}"
-             value="{{ step.id if step else '' }}"
+             value="{{ own_id }}"
              placeholder="e.g. check-nginx" required
              oninput="updateRequiresGroups()">
     </div>
 
-    <!-- exec method toggle -->
-    <div class="form-group" style="grid-column: span 2">
+    {# ── Execution ───────────────────────────────────────────────────────────── #}
+    <div class="step-section-label" style="grid-column: span 3">Execution</div>
+
+    <div class="form-group" style="grid-column: span 3">
       <label>Exec type</label>
       <div class="exec-toggle">
         <input type="radio" id="exec-cmd-{{ idx }}" name="step_exec_method_{{ idx }}"
@@ -30,7 +54,6 @@
       </div>
     </div>
 
-    <!-- command input -->
     <div class="form-group" id="exec-command-group-{{ idx }}"
          style="grid-column: span 3{% if exec_method == 'script' %}; display:none{% endif %}">
       <label>Command <span style="color:var(--r)">*</span></label>
@@ -39,7 +62,6 @@
              placeholder="e.g. systemctl is-active nginx">
     </div>
 
-    <!-- script select + view -->
     <div class="form-group" id="exec-script-group-{{ idx }}"
          style="grid-column: span 3{% if exec_method != 'script' %}; display:none{% endif %}">
       <label>Script <span style="color:var(--r)">*</span></label>
@@ -47,65 +69,144 @@
         <select name="step_exec_script_{{ idx }}" id="exec-script-select-{{ idx }}" style="flex:1">
           <option value="">— select a script —</option>
           {% for s in available_scripts %}
-          <option value="{{ s }}"
-            {% if step and step.exec_script == s %}selected{% endif %}>
-            {{ s }}
-          </option>
+          <option value="{{ s }}" {% if step and step.exec_script == s %}selected{% endif %}>{{ s }}</option>
           {% endfor %}
         </select>
-        <button type="button" class="btn-sm" onclick="viewScript({{ idx }})"
-                title="View script content">&#128065; View</button>
+        <button type="button" class="btn-sm" onclick="viewScript({{ idx }})" title="View script content">&#128065; View</button>
       </div>
       {% if not available_scripts %}
       <span class="hint">No scripts yet — <a href="/script/new" target="_blank">add one</a>.</span>
       {% endif %}
     </div>
 
-    <div class="form-group">
+    {# ── Check ───────────────────────────────────────────────────────────────── #}
+    <div class="step-section-label" style="grid-column: span 3">Check</div>
+
+    <div class="form-group" style="grid-column: span 3">
       <label>Check method</label>
       <select name="step_check_method_{{ idx }}"
-              onchange="togglePattern(this, {{ idx }})">
+              onchange="onCheckMethodChange(this, {{ idx }})">
         {% for cm in check_methods %}
         <option value="{{ cm.value }}"
-          {% if step and step.check_method == cm.value %}selected{% endif %}>
-          {{ cm.value }}
-        </option>
+          {% if check_method_val == cm.value %}selected{% endif %}>{{ cm.value }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" id="pattern-group-{{ idx }}"
-         {% if not step or step.check_method not in ('stdout_regex','stdout_contains') %}style="display:none"{% endif %}>
-      <label>Pattern</label>
-      <input type="text" name="step_check_pattern_{{ idx }}"
-             value="{{ step.check_pattern if step else '' }}"
-             placeholder="regex or string">
+
+    {# Binary branch labels — shown for non-pattern check methods #}
+    <div class="form-group" id="binary-branches-{{ idx }}"
+         style="grid-column: span 3{% if show_patterns %}; display:none{% endif %}">
+      <label>Branch signals</label>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+        <div style="display:flex; align-items:center; gap:6px">
+          <span class="branch-badge">0</span>
+          <input type="text" name="step_branch_names_{{ idx }}"
+                 data-binary-branch="0"
+                 value="{{ branches_list[0].name if branches_list | length > 0 else '' }}"
+                 placeholder="pass"
+                 style="flex:1"
+                 oninput="onBranchDataChange({{ idx }})">
+          {{ signal_select(idx, 0, 'ok') }}
+        </div>
+        <div style="display:flex; align-items:center; gap:6px">
+          <span class="branch-badge branch-badge-dim">1</span>
+          <input type="text" name="step_branch_names_{{ idx }}"
+                 data-binary-branch="1"
+                 value="{{ branches_list[1].name if branches_list | length > 1 else '' }}"
+                 placeholder="fail"
+                 style="flex:1"
+                 oninput="onBranchDataChange({{ idx }})">
+          {{ signal_select(idx, 1, 'fail') }}
+        </div>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Remediation (if failed)</label>
-      <input type="text" name="step_if_failed_{{ idx }}"
-             value="{{ step.if_failed if step else '' }}"
-             placeholder="optional fix command">
+
+    {# Pattern branches — shown for pattern check methods #}
+    <div class="form-group" id="pattern-branches-{{ idx }}"
+         style="grid-column: span 3{% if not show_patterns %}; display:none{% endif %}">
+      <label>Branches <span style="color:var(--r)">*</span></label>
+      <div id="patterns-list-{{ idx }}">
+        {% if check_patterns %}
+          {% for pat in check_patterns %}
+          {% set i = loop.index0 %}
+          {% set cur_b = branches_list[i] if i < (branches_list | length) else none %}
+          {% set cur_sig = (cur_b.signal if cur_b is not none else 'ok') | string %}
+          <div class="pattern-row">
+            <span class="branch-badge" data-bbadge>{{ i }}</span>
+            <input type="text" name="step_branch_names_{{ idx }}" data-role="branch-name"
+                   value="{{ cur_b.name if cur_b is not none else '' }}"
+                   placeholder="branch {{ i }}" style="width:80px"
+                   oninput="onBranchDataChange({{ idx }})">
+            <select name="step_branch_signals_{{ idx }}" data-role="branch-signal"
+                    class="signal-select" data-signal="{{ cur_sig }}"
+                    onchange="onSignalChange(this)">
+              {% for s in ['ok', 'warning', 'update', 'fail'] %}
+              <option value="{{ s }}" {% if cur_sig == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="step_check_patterns_{{ idx }}" data-role="pattern-value"
+                   value="{{ pat }}" placeholder="pattern or threshold" style="flex:1">
+            <button type="button" class="btn-sm btn-remove"
+                    onclick="removePatternRow(this, {{ idx }})">✕</button>
+          </div>
+          {% endfor %}
+        {% else %}
+          {% set cur_sig_0 = (branches_list[0].signal if branches_list | length > 0 else 'ok') | string %}
+          <div class="pattern-row">
+            <span class="branch-badge" data-bbadge>0</span>
+            <input type="text" name="step_branch_names_{{ idx }}" data-role="branch-name"
+                   value="{{ branches_list[0].name if branches_list | length > 0 else '' }}"
+                   placeholder="branch 0" style="width:80px"
+                   oninput="onBranchDataChange({{ idx }})">
+            <select name="step_branch_signals_{{ idx }}" data-role="branch-signal"
+                    class="signal-select" data-signal="{{ cur_sig_0 }}"
+                    onchange="onSignalChange(this)">
+              {% for s in ['ok', 'warning', 'update', 'fail'] %}
+              <option value="{{ s }}" {% if cur_sig_0 == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="step_check_patterns_{{ idx }}" data-role="pattern-value"
+                   value="" placeholder="pattern or threshold" style="flex:1">
+            <button type="button" class="btn-sm btn-remove"
+                    onclick="removePatternRow(this, {{ idx }})">✕</button>
+          </div>
+        {% endif %}
+        {# No-match branch — always last, not removable #}
+        {% set no_match_idx = check_patterns | length if check_patterns else 1 %}
+        {% set nm_b = branches_list[no_match_idx] if no_match_idx < (branches_list | length) else none %}
+        {% set nm_sig = (nm_b.signal if nm_b is not none else 'fail') | string %}
+        <div class="no-match-row">
+          <span class="branch-badge branch-badge-dim" data-bbadge>{{ no_match_idx }}</span>
+          <input type="text" name="step_branch_names_{{ idx }}" data-role="branch-name"
+                 value="{{ nm_b.name if nm_b is not none else '' }}"
+                 placeholder="no match" style="width:80px"
+                 oninput="onBranchDataChange({{ idx }})">
+          <select name="step_branch_signals_{{ idx }}" data-role="branch-signal"
+                  class="signal-select" data-signal="{{ nm_sig }}"
+                  onchange="onSignalChange(this)">
+            {% for s in ['ok', 'warning', 'update', 'fail'] %}
+            <option value="{{ s }}" {% if nm_sig == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <span style="flex:1; font-size:11px; color:var(--ink-light); align-self:center">
+            ↳ when no pattern matches
+          </span>
+        </div>
+      </div>
+      <button type="button" class="btn-sm" style="margin-top:6px"
+              onclick="addPatternBranch({{ idx }})">+ Add Branch</button>
     </div>
+
+    {# ── Dependencies ────────────────────────────────────────────────────────── #}
+    <div class="step-section-label" style="grid-column: span 3">Dependencies</div>
+
     <div class="form-group" style="grid-column: span 3">
       <label>Requires</label>
-      {% set requires_list = step.requires if step else [] %}
-      {% set own_id = step.id if step else '' %}
-      {% set others = all_step_ids | reject("equalto", own_id) | list %}
-      {% if others %}
-      <div class="checkbox-group" id="step-requires-group-{{ idx }}">
-        {% for sid in others %}
-        <label class="checkbox-item" data-step-id="{{ sid }}">
-          <input type="checkbox" name="step_requires_{{ idx }}" value="{{ sid }}"
-                 {% if sid in requires_list %}checked{% endif %}>
-          <code>{{ sid }}</code>
-        </label>
-        {% endfor %}
+      {# JS reads data-init-requires on first render, then tracks DOM state #}
+      <div id="step-requires-group-{{ idx }}"
+           data-init-requires="{{ requires_list | tojson }}">
       </div>
-      {% else %}
-      <div class="checkbox-group" id="step-requires-group-{{ idx }}">
-        <span class="hint">No other steps defined yet.</span>
-      </div>
-      {% endif %}
     </div>
+
   </div>
 </div>

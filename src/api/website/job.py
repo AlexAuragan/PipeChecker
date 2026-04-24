@@ -3,13 +3,18 @@ from uuid import UUID
 from fastapi import Request, HTTPException, APIRouter, BackgroundTasks
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
+
 from src.api import utils
 from src.api.website.utils import compute_columns, build_edges, templates
 from src.classes.connectors import Manager
 from src.core import jobs
 from src.core.database import JobSource
 
+# Substrings that indicate an SSH/authentication failure in a crash traceback.
+_SSH_MARKERS = ("paramiko", "AuthenticationException", "NoValidConnectionsError", "ssh_exception")
+
 router = APIRouter(tags=["job"])
+
 
 @router.post("/run/{name}")
 def web_start_job(
@@ -62,39 +67,38 @@ def job_page(request: Request, job_id: UUID):
 
     target_results = [
         {
-            "target_id":   result["target_id"],
-            "target_name": result["target_name"],
-            "t_status":    result["status"],
-            "duration":    result["duration"],
+            "target_id":    result["target_id"],
+            "target_name":  result["target_name"],
+            "t_status":     result["status"],
+            "duration":     result["duration"],
             "step_results": {s["step_id"]: s for s in result["steps"]},
         }
         for result in job["results"]
     ]
 
-    status_counts = {"green": 0, "orange": 0, "red": 0}
+    status_counts = {"green": 0, "red": 0}
     for tr in target_results:
         if tr["t_status"] in status_counts:
             status_counts[tr["t_status"]] += 1
 
     is_live = str(job["status"].value) in ("pending", "running")
-
     crash_reason = job.get("crash_reason")
-    _SSH_MARKERS = ("paramiko", "AuthenticationException", "NoValidConnectionsError", "ssh_exception")
     is_ssh_error = bool(crash_reason and any(m in crash_reason for m in _SSH_MARKERS))
 
     return templates.TemplateResponse(
         request=request,
         name="job.html",
         context={
-        "request": request,
-        "job": job,
-        "pipeline": pipeline,
-        "group": group,
-        "columns": columns,
-        "edges": edges,
-        "target_results": target_results,
-        "status_counts": status_counts,
-        "is_live": is_live,
-        "crash_reason": crash_reason,
-        "is_ssh_error": is_ssh_error,
-    })
+            "request": request,
+            "job": job,
+            "pipeline": pipeline,
+            "group": group,
+            "columns": columns,
+            "edges": edges,
+            "target_results": target_results,
+            "status_counts": status_counts,
+            "is_live": is_live,
+            "crash_reason": crash_reason,
+            "is_ssh_error": is_ssh_error,
+        },
+    )

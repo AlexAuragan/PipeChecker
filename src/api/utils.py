@@ -1,12 +1,12 @@
 import asyncio
 import traceback
 from contextlib import asynccontextmanager
-from typing import Tuple
+from uuid import UUID
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Request, HTTPException, status
 from watchfiles import awatch
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src import config
 from src.classes.connectors import Manager, Connector
@@ -17,6 +17,7 @@ scheduler = AsyncIOScheduler()
 
 
 def make_scheduled_job(app: FastAPI, pipe: Pipeline):
+    """Return an async callable that runs the given pipeline as a cron job."""
     async def job():
         manager = app.state.manager
         if manager is None:
@@ -24,13 +25,13 @@ def make_scheduled_job(app: FastAPI, pipe: Pipeline):
             return
         from src.core.database import JobSource
         job_id = jobs.create_job(pipeline_name=pipe.name, source=JobSource.cron)
-
         await execute_job(job_id, pipe.name, manager)
 
     return job
 
 
-async def initial_load(app):
+async def initial_load(app: FastAPI) -> None:
+    """Load connectors in a background thread and mark the app as ready."""
     try:
         app.state.manager = await asyncio.to_thread(load_and_init)
         print("Connectors loaded")
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
     if n:
         print(f"Marked {n} orphaned job(s) as crashed (server restart)")
 
-    load_task = asyncio.create_task(initial_load(app))  # pass app
+    load_task = asyncio.create_task(initial_load(app))
     watcher_task = asyncio.create_task(watch_config(app))
     archive_task = asyncio.create_task(_archive_loop())
 
@@ -65,7 +66,7 @@ async def lifespan(app: FastAPI):
             )
     scheduler.start()
 
-    yield  # ← single yield
+    yield
 
     load_task.cancel()
     watcher_task.cancel()
@@ -77,21 +78,25 @@ async def lifespan(app: FastAPI):
             pass
     scheduler.shutdown()
 
+
 def load_and_init() -> Manager:
+    """Load connectors from disk and fetch their targets (blocking)."""
     m = storage.load_manager()
     m.load_targets()
     return m
 
 
 def get_manager(request: Request) -> Manager:
+    """FastAPI dependency: return the app-level Manager or raise 503 if not ready."""
     if not request.app.state.ready:
         raise HTTPException(status_code=503, detail="Still loading connectors")
     return request.app.state.manager
 
+
 async def watch_config(app: FastAPI):
-    """Background task that reloads the manager when the config file changes."""
+    """Background task: reload the manager whenever the connector config file changes."""
     async for _changes in awatch(config.CONNECTOR_FILE):
-        print(f"Config file changed, reloading connectors...")
+        print("Config file changed, reloading connectors...")
         try:
             new_manager = await asyncio.to_thread(load_and_init)
             app.state.manager = new_manager
@@ -99,8 +104,9 @@ async def watch_config(app: FastAPI):
         except Exception as e:
             print(f"Reload failed, keeping old config: {e}")
 
+
 async def _archive_loop():
-    """Run archival, stale-job cleanup, and cancelled-job cleanup every hour."""
+    """Background task: run archival, stale-job cleanup, and cancelled-job cleanup every hour."""
     from src.core import jobs
     while True:
         await asyncio.sleep(3600)
@@ -119,21 +125,27 @@ async def _archive_loop():
         except Exception as e:
             print(f"Cancelled job cleanup failed: {e}")
 
-async def reload_manager(app: FastAPI):
+
+async def reload_manager(app: FastAPI) -> None:
+    """Reload the connector manager from disk, keeping the old config on failure."""
     try:
-        # We don't concern ourselves with state.ready since the old config is always available
+        # state.ready stays True: the old manager is always available as a fallback
         new_manager = await asyncio.to_thread(load_and_init)
         app.state.manager = new_manager
         print(f"Reload complete: {len(list(new_manager))} connectors")
     except Exception as e:
         print(f"Reload failed, keeping old config: {e}")
 
+
 ## Pipelines
+
 def load_all_pipelines() -> dict[str, Pipeline]:
     """Flatten all pipeline groups into a single dict keyed by pipeline name."""
     return {name: pipe for group in storage.load_pipelines().values() for name, pipe in group.items()}
 
+
 ## Connectors
+
 def get_connector_or_404(manager: Manager, name: str) -> Connector:
     try:
         return manager.get(name)
@@ -143,7 +155,8 @@ def get_connector_or_404(manager: Manager, name: str) -> Connector:
             detail=f"Connector '{name}' not found.",
         )
 
-def get_pipeline_or_404(name: str, group: str | None) -> Tuple[Pipeline, str]:
+
+def get_pipeline_or_404(name: str, group: str | None) -> tuple[Pipeline, str]:
     for g, pipes in storage.load_pipelines().items():
         if group and g != group:
             continue
@@ -154,13 +167,15 @@ def get_pipeline_or_404(name: str, group: str | None) -> Tuple[Pipeline, str]:
         detail=f"Pipeline '{name}' not found.",
     )
 
+
 ## Jobs
-from src.core import jobs, run
-from src.core.database import JobStatus
-from uuid import UUID
+# Deferred to avoid a circular import (jobs/run import from classes which import from api).
+from src.core import jobs, run  # noqa: E402
+from src.core.database import JobStatus  # noqa: E402
 
 
 async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> None:
+    """Run a pipeline in a background thread, updating the job status in the DB."""
     print(f"running job {job_id} on pipeline {pipeline_name}")
     jobs.set_job_status(job_id, JobStatus.running)
     try:

@@ -58,10 +58,10 @@
         <span>{{ fmt_duration(sr.duration) }}</span>
       </div>
       {% endif %}
-      {% if sr.tried_fix and step.if_failed %}
+      {% if not sr.skipped and sr.branch > 0 %}
       <div class="info-item">
-        <label>Remediation applied</label>
-        <span><code>{{ step.if_failed }}</code></span>
+        <label>Branch</label>
+        <span><code>{{ sr.branch }}</code></span>
       </div>
       {% endif %}
     </div>

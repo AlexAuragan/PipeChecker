@@ -65,10 +65,10 @@ class LiveStepResult(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     pipeline_result_id: UUID = Field(foreign_key="livepipelineresult.id")
     step_id: str
-    success: bool
+    signal: str = "ok"
     stdout: str
     stderr: str
-    tried_fix: bool
+    branch: int = 0
     skipped: bool
     duration: float = 0.0
 
@@ -94,10 +94,10 @@ class ArchivedStepResult(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     archived_run_id: UUID = Field(foreign_key="archivedrun.id")
     step_id: str
-    success: bool
+    signal: str = "ok"
     stdout: str
     stderr: str
-    tried_fix: bool
+    branch: int = 0
     skipped: bool
     duration: float = 0.0
 
@@ -136,8 +136,24 @@ def init_db():
         if "duration" not in lsr_cols:
             conn.execute(text("ALTER TABLE livestepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()
+        if "branch" not in lsr_cols:
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+        if "signal" not in lsr_cols:
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"))
+            if "success" in lsr_cols:
+                conn.execute(text("UPDATE livestepresult SET signal='fail' WHERE success=0 AND skipped=0"))
+            conn.commit()
 
         asr_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedstepresult")]
         if "duration" not in asr_cols:
             conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
+            conn.commit()
+        if "branch" not in asr_cols:
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+        if "signal" not in asr_cols:
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"))
+            if "success" in asr_cols:
+                conn.execute(text("UPDATE archivedstepresult SET signal='fail' WHERE success=0 AND skipped=0"))
             conn.commit()

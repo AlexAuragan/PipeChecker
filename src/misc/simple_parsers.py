@@ -1,10 +1,14 @@
+"""Simple text parsers for Proxmox CLI output formats."""
+
 import re
 
+
 def parse_table(output: str) -> list[dict]:
+    """Parse a fixed-width columnar table (e.g. `pct list` output) into a list of dicts."""
     lines = output.strip().splitlines()
     header_line = lines[0]
 
-    # Find each header and its exact start position
+    # Find each header token and its exact start column.
     headers = [(m.group(), m.start()) for m in re.finditer(r'\S+', header_line)]
 
     results = []
@@ -18,14 +22,19 @@ def parse_table(output: str) -> list[dict]:
         results.append(row)
     return results
 
+
 def pct_config_parser(conf: str) -> dict:
-    arch = (re.findall(r'arch: (.*?)\n', conf) or [None])[0]
-    memory = (re.findall(r'memory: (.*?)\n', conf) or [None])[0]
-    swap = (re.findall(r'swap: (.*?)\n', conf) or [None])[0]
-    hostname = (re.findall(r'hostname: (.*?)\n', conf) or [None])[0]
-    ostype = (re.findall(r'ostype: (.*?)\n', conf) or [None])[0]
-    rootfs = (re.findall(r'rootfs: (.*?)\n', conf) or [None])[0]
-    net0 = (re.findall(r'net0: (.*?)\n', conf) or [None])[0]
+    """Extract key fields from a Proxmox CT config file (e.g. /etc/pve/lxc/<id>.conf)."""
+    def _find(pattern: str):
+        return (re.findall(pattern, conf) or [None])[0]
+
+    arch = _find(r'arch: (.*?)\n')
+    memory = _find(r'memory: (.*?)\n')
+    swap = _find(r'swap: (.*?)\n')
+    hostname = _find(r'hostname: (.*?)\n')
+    ostype = _find(r'ostype: (.*?)\n')
+    rootfs = _find(r'rootfs: (.*?)\n')
+    net0 = _find(r'net0: (.*?)\n')
 
     if memory:
         memory = int(memory)
@@ -49,5 +58,5 @@ def pct_config_parser(conf: str) -> dict:
         "ostype": ostype,
         "rootfs_size": rootfs_size,
         "ip": ip,
-        "hostname": hostname
+        "hostname": hostname,
     }

@@ -1,7 +1,7 @@
-from abc import abstractmethod
-from ipaddress import IPv4Address
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from abc import ABC
+from ipaddress import IPv4Address
+
 
 @dataclass
 class Target(ABC):
@@ -18,6 +18,7 @@ class Target(ABC):
     @abstractmethod
     def name(self) -> str:
         pass
+
 
 @dataclass
 class Url(Target):
@@ -43,13 +44,13 @@ class ProxmoxCT(Target):
     pct_name: str
     node_name: str
     node_ip: IPv4Address
-    pct_status: str # Literal["running", ]
+    pct_status: str
     ostype: str
 
     @property
     def ssh_addr(self):
-        return f"root@{self.node_ip}" # TODO maybe have a way to change the user for ssh. I don't think it can be done
-                                     # via `pct list`
+        # TODO maybe have a way to change the user for ssh. I don't think it can be done via `pct list`
+        return f"root@{self.node_ip}"
 
     @property
     def id(self):
@@ -70,6 +71,7 @@ class ProxmoxCT(Target):
     @property
     def name(self):
         return f"[{self.pct_id}] {self.pct_name}"
+
 
 @dataclass
 class RemoteLinuxMachine(Target):

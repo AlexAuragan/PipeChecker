@@ -1,6 +1,13 @@
 from enum import Enum
 
 
+class Status(str, Enum):
+    ok = "ok"
+    warning = "warning"
+    update = "update"
+    fail = "fail"
+
+
 class ConnectorType(str, Enum):
     proxmox = "Proxmox"
     caddy = "Caddy"
@@ -15,7 +22,9 @@ class RunnerType(str, Enum):
 
 class ExecMethod(str, Enum):
     command = "command"
-    script = "script"  # exec is a path relative to SCRIPTS_FOLDER; the runner decides where to run it
+    # "script" means exec is a path relative to SCRIPTS_FOLDER; the runner decides where to run it
+    script = "script"
+
 
 class CheckMethod(str, Enum):
     exit_code = "exit_code"
@@ -25,5 +34,10 @@ class CheckMethod(str, Enum):
     stdout_not_empty = "stdout_not_empty"
     finish_in_less_than = "finish_in_less_than"
 
-    def requires_pattern(self):
-        return self in (CheckMethod.stdout_contains, CheckMethod.stdout_regex, CheckMethod.finish_in_less_than)
+    def requires_pattern(self) -> bool:
+        """Return True for check methods that require a check_patterns list."""
+        return self in (
+            CheckMethod.stdout_contains,
+            CheckMethod.stdout_regex,
+            CheckMethod.finish_in_less_than,
+        )

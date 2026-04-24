@@ -55,10 +55,10 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
             session.add(LiveStepResult(
                 pipeline_result_id=pr.id,
                 step_id=step.step_id,
-                success=step.success,
+                signal=step.signal.value,
                 stdout=step.stdout[:MAX_OUTPUT_LEN],
                 stderr=step.stderr[:MAX_OUTPUT_LEN],
-                tried_fix=step.tried_fix,
+                branch=step.branch,
                 skipped=step.skipped,
                 duration=step.duration,
             ))
@@ -87,10 +87,10 @@ def get_job(job_id: UUID) -> dict | None:
                     "steps": [
                         {
                             "step_id": s.step_id,
-                            "success": s.success,
+                            "signal": s.signal,
                             "stdout": s.stdout,
                             "stderr": s.stderr,
-                            "tried_fix": s.tried_fix,
+                            "branch": s.branch,
                             "skipped": s.skipped,
                             "duration": s.duration,
                         }
@@ -178,10 +178,10 @@ def archive_old_jobs() -> None:
                         session.add(ArchivedStepResult(
                             archived_run_id=archived.id,
                             step_id=step.step_id,
-                            success=step.success,
+                            signal=step.signal,
                             stdout=step.stdout,
                             stderr=step.stderr,
-                            tried_fix=step.tried_fix,
+                            branch=step.branch,
                             skipped=step.skipped,
                             duration=step.duration,
                         ))

@@ -3,11 +3,21 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
 from src.api import utils
-from src.api.website.utils import (available_connectors, parse_pipeline_form, steps_from_form, form_base_ctx,
-                                   compute_columns, build_edges, templates)
+from src.api.website.utils import (
+    available_connectors, parse_pipeline_form, steps_from_form,
+    form_base_ctx, compute_columns, build_edges, templates,
+)
 from src.core import jobs, storage as _storage
 
 router = APIRouter(tags=["pipeline"])
+
+
+def _validation_errors(exc: ValidationError | ValueError) -> list[str]:
+    """Format a Pydantic or plain ValueError into a list of human-readable strings."""
+    if hasattr(exc, "errors"):
+        return [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()]
+    return [str(exc)]
+
 
 @router.get("/new", response_class=HTMLResponse)
 def new_pipeline_page(request: Request):
@@ -32,7 +42,7 @@ async def create_pipeline(request: Request):
     try:
         group, pipeline = parse_pipeline_form(form)
     except (ValidationError, ValueError) as exc:
-        errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        errors = _validation_errors(exc)
         steps = steps_from_form(form)
         return templates.TemplateResponse(request=request, name="pipeline_form.html", status_code=422, context={
             **form_base_ctx(),
@@ -56,16 +66,16 @@ async def create_pipeline(request: Request):
 def edit_pipeline_page(request: Request, name: str):
     pipeline, group = utils.get_pipeline_or_404(name, None)
     steps = [(i, {
-        "id":            s.id,
-        "exec":          s.exec,
-        "exec_method":   s.exec_method.value,
-        "exec_command":  s.exec if s.exec_method.value == "command" else "",
-        "exec_script":   s.exec if s.exec_method.value == "script" else "",
-        "check_method":  s.check_method.value,
-        "check_pattern": s.check_pattern or "",
-        "if_failed":     s.if_failed or "",
-        "requires":      s.requires,
-    }) for i, s in enumerate(pipeline.pipeline)]
+        "id":             step.id,
+        "exec":           step.exec,
+        "exec_method":    step.exec_method.value,
+        "exec_command":   step.exec if step.exec_method.value == "command" else "",
+        "exec_script":    step.exec if step.exec_method.value == "script" else "",
+        "check_method":   step.check_method.value,
+        "check_patterns": step.check_patterns or [],
+        "branches":       [{"name": b.name, "signal": b.signal.value} for b in step.branches],
+        "requires":       [{"step": r.step, "branch": r.branch} for r in step.requires],
+    }) for i, step in enumerate(pipeline.pipeline)]
     return templates.TemplateResponse(request=request, name="pipeline_form.html", context={
         **form_base_ctx(),
         "request": request,
@@ -88,7 +98,7 @@ async def update_pipeline_route(request: Request, name: str):
     try:
         group, pipeline = parse_pipeline_form(form)
     except (ValidationError, ValueError) as exc:
-        errors = [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in (exc.errors() if hasattr(exc, 'errors') else [])] or [str(exc)]
+        errors = _validation_errors(exc)
         steps = steps_from_form(form)
         return templates.TemplateResponse(request=request, name="pipeline_form.html", status_code=422, context={
             **form_base_ctx(),
@@ -124,11 +134,9 @@ def pipeline_page(request: Request, name: str):
         "pipeline_jobs": pipeline_jobs[:20],
     })
 
+
 @router.post("/{name}/delete", response_class=HTMLResponse)
 async def delete_pipeline_route(request: Request, name: str):
     pipeline, group = utils.get_pipeline_or_404(name, None)
     _storage.delete_pipeline(name, group)
     return RedirectResponse("/", status_code=303)
-
-
-

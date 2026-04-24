@@ -130,6 +130,90 @@
       font-size: 10px;
       padding: 1px 5px;
     }
+    /* ── step section dividers ─────────────────────────────────── */
+    .step-section-label {
+      border-top: 1.5px solid var(--border);
+      padding-top: 10px;
+      margin-top: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--ink-light);
+    }
+
+    /* ── signal select ─────────────────────────────────────────── */
+    .signal-select {
+      width: 76px;
+      font-size: 11px;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+    .signal-select[data-signal="ok"]      { color: var(--g); border-color: var(--g); }
+    .signal-select[data-signal="warning"] { color: var(--o); border-color: var(--o); }
+    .signal-select[data-signal="update"]  { color: var(--b); border-color: var(--b); }
+    .signal-select[data-signal="fail"]    { color: var(--r); border-color: var(--r); }
+
+    /* ── branch UI ─────────────────────────────────────────────── */
+    .branch-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 5px;
+      border-radius: 6px;
+      background: var(--accent-bg);
+      border: 1.5px solid var(--accent);
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .branch-badge.branch-badge-dim {
+      border-color: var(--border);
+      color: var(--ink-light);
+      background: transparent;
+    }
+    .pattern-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .no-match-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 6px;
+      margin-top: 4px;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* ── requires rows ─────────────────────────────────────────── */
+    .requires-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      margin-bottom: 3px;
+      transition: background .1s;
+    }
+    .requires-row:hover { background: var(--accent-bg); }
+    .requires-row code {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .requires-row .when-label {
+      font-size: 11px;
+      color: var(--ink-light);
+      flex-shrink: 0;
+    }
+
     /* exec method pill toggle */
     .exec-toggle {
       display: inline-flex;
@@ -396,20 +480,232 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
 <script>
-  const PATTERN_METHODS = ['stdout_regex', 'stdout_contains'];
+  const PATTERN_METHODS = ['stdout_regex', 'stdout_contains', 'finish_in_less_than'];
   let stepCount = {{ steps | length }};
 
-  function togglePattern(sel, idx) {
-    const pg = document.getElementById('pattern-group-' + idx);
-    if (pg) pg.style.display = PATTERN_METHODS.includes(sel.value) ? '' : 'none';
+  // ── util ───────────────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── signal select coloring ────────────────────────────────────────────────
+  function onSignalChange(sel) {
+    sel.dataset.signal = sel.value;
+    updateRequiresGroups(); // fail branches must disappear from requires dropdowns
+  }
+
+  // ── exec method ────────────────────────────────────────────────────────────
   function onExecMethodChange(idx) {
     const isScript = document.getElementById('exec-scr-' + idx).checked;
     document.getElementById('exec-command-group-' + idx).style.display = isScript ? 'none' : '';
     document.getElementById('exec-script-group-'  + idx).style.display = isScript ? '' : 'none';
   }
 
+  // ── check method ───────────────────────────────────────────────────────────
+  function onCheckMethodChange(sel, idx) {
+    const isPattern = PATTERN_METHODS.includes(sel.value);
+    document.getElementById('binary-branches-' + idx).style.display = isPattern ? 'none' : '';
+    document.getElementById('pattern-branches-' + idx).style.display = isPattern ? '' : 'none';
+    updateRequiresGroups();
+  }
+
+  // ── branch data (read from DOM) ────────────────────────────────────────────
+  // Only returns branches whose signal is not 'fail' — those cannot be required.
+  function getStepBranchInfo(idx) {
+    const row = document.getElementById('step-row-' + idx);
+    if (!row) return [{index:0, name:'pass'}];
+    const checkMethod = row.querySelector(`[name="step_check_method_${idx}"]`)?.value || '';
+    const isPattern = PATTERN_METHODS.includes(checkMethod);
+    if (!isPattern) {
+      const binDiv = document.getElementById('binary-branches-' + idx);
+      const sigs = binDiv ? [...binDiv.querySelectorAll(`[name="step_branch_signals_${idx}"]`)] : [];
+      const b0 = row.querySelector('[data-binary-branch="0"]')?.value.trim() || 'pass';
+      const b1 = row.querySelector('[data-binary-branch="1"]')?.value.trim() || 'fail';
+      const sig0 = sigs[0]?.dataset?.signal || 'ok';
+      const sig1 = sigs[1]?.dataset?.signal || 'fail';
+      const result = [];
+      if (sig0 !== 'fail') result.push({index:0, name:b0||'pass'});
+      if (sig1 !== 'fail') result.push({index:1, name:b1||'fail'});
+      return result;
+    }
+    const list = document.getElementById('patterns-list-' + idx);
+    if (!list) return [];
+    const branches = [];
+    const patternRows = list.querySelectorAll('.pattern-row');
+    patternRows.forEach((pr, i) => {
+      const name = pr.querySelector('[data-role="branch-name"]')?.value.trim() || `branch ${i}`;
+      const sig = pr.querySelector(`[name="step_branch_signals_${idx}"]`)?.dataset?.signal || 'ok';
+      if (sig !== 'fail') branches.push({index:i, name});
+    });
+    const noMatchRow = list.querySelector('.no-match-row');
+    if (noMatchRow) {
+      const noMatchName = noMatchRow.querySelector('[data-role="branch-name"]')?.value.trim() || 'no match';
+      const nmSig = noMatchRow.querySelector(`[name="step_branch_signals_${idx}"]`)?.dataset?.signal || 'fail';
+      if (nmSig !== 'fail') branches.push({index:patternRows.length, name:noMatchName});
+    }
+    return branches;
+  }
+
+  function onBranchDataChange(idx) {
+    updateRequiresGroups();
+  }
+
+  // ── pattern branch rows ────────────────────────────────────────────────────
+  function addPatternBranch(idx) {
+    const list = document.getElementById('patterns-list-' + idx);
+    if (!list) return;
+    const noMatch = list.querySelector('.no-match-row');
+    const count = list.querySelectorAll('.pattern-row').length;
+    const row = document.createElement('div');
+    row.className = 'pattern-row';
+    row.innerHTML =
+      `<span class="branch-badge" data-bbadge>${count}</span>` +
+      `<input type="text" name="step_branch_names_${idx}" data-role="branch-name"` +
+      ` value="" placeholder="branch ${count}" style="width:80px"` +
+      ` oninput="onBranchDataChange(${idx})">` +
+      `<select name="step_branch_signals_${idx}" data-role="branch-signal"` +
+      ` class="signal-select" data-signal="ok" onchange="onSignalChange(this)">` +
+      `<option value="ok" selected>ok</option>` +
+      `<option value="warning">warning</option>` +
+      `<option value="update">update</option>` +
+      `<option value="fail">fail</option>` +
+      `</select>` +
+      `<input type="text" name="step_check_patterns_${idx}" data-role="pattern-value"` +
+      ` value="" placeholder="pattern or threshold" style="flex:1">` +
+      `<button type="button" class="btn-sm btn-remove" onclick="removePatternRow(this,${idx})">✕</button>`;
+    list.insertBefore(row, noMatch);
+    renumberBranchBadges(idx);
+    updateRequiresGroups();
+  }
+
+  function removePatternRow(btn, idx) {
+    const list = document.getElementById('patterns-list-' + idx);
+    if (!list) return;
+    if (list.querySelectorAll('.pattern-row').length <= 1) {
+      const row = btn.closest('.pattern-row');
+      row.querySelector('[data-role="branch-name"]').value = '';
+      row.querySelector('[data-role="pattern-value"]').value = '';
+      return;
+    }
+    btn.closest('.pattern-row').remove();
+    renumberBranchBadges(idx);
+    updateRequiresGroups();
+  }
+
+  function renumberBranchBadges(idx) {
+    const list = document.getElementById('patterns-list-' + idx);
+    if (!list) return;
+    const rows = list.querySelectorAll('.pattern-row');
+    rows.forEach((row, i) => {
+      const b = row.querySelector('[data-bbadge]');
+      if (b) b.textContent = i;
+      const inp = row.querySelector('[data-role="branch-name"]');
+      if (inp && !inp.value) inp.placeholder = `branch ${i}`;
+    });
+    const noMatchBadge = list.querySelector('.no-match-row [data-bbadge]');
+    if (noMatchBadge) noMatchBadge.textContent = rows.length;
+  }
+
+  // ── requires groups ────────────────────────────────────────────────────────
+  function updateRequiresGroups() {
+    const allSteps = [...document.querySelectorAll('[id^="step-row-"]')].map(row => {
+      const idx = parseInt(row.id.replace('step-row-', ''));
+      const id = (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim();
+      return {idx, id, branches: getStepBranchInfo(idx)};
+    }).filter(s => s.id);
+
+    allSteps.forEach(({idx, id}) => {
+      const group = document.getElementById('step-requires-group-' + idx);
+      if (!group) return;
+
+      // Preserve current selections from DOM; fall back to data attribute on first render
+      const curReqs = {};
+      const existingRows = group.querySelectorAll('.requires-row');
+      if (existingRows.length > 0) {
+        existingRows.forEach(rrow => {
+          const cb = rrow.querySelector('input[type="checkbox"]');
+          const sel = rrow.querySelector('select');
+          const stepId = cb?.dataset.stepId;
+          if (stepId) curReqs[stepId] = {checked: !!cb?.checked, branch: parseInt(sel?.value ?? 0) || 0};
+        });
+      } else {
+        try {
+          JSON.parse(group.dataset.initRequires || '[]')
+            .forEach(r => { curReqs[r.step] = {checked: true, branch: r.branch}; });
+        } catch {}
+      }
+
+      const others = allSteps.filter(s => s.id !== id);
+      if (!others.length) {
+        group.innerHTML = '<span class="hint" style="font-size:12px">No other steps defined yet.</span>';
+        return;
+      }
+
+      group.innerHTML = others.map(other => {
+        const cur = curReqs[other.id] || {checked: false, branch: 0};
+        const selBranch = other.branches.some(b => b.index === cur.branch) ? cur.branch : (other.branches[0]?.index ?? 0);
+        const options = other.branches.map(b =>
+          `<option value="${b.index}"${b.index === selBranch ? ' selected' : ''}>${escHtml(b.name)}</option>`
+        ).join('');
+        return `<div class="requires-row">` +
+          `<input type="checkbox" name="step_requires_${idx}"` +
+          ` value="${escHtml(other.id)}:${selBranch}"` +
+          ` data-step-id="${escHtml(other.id)}"` +
+          ` onchange="onRequiresToggle(${idx},'${escHtml(other.id)}',this)"` +
+          (cur.checked ? ' checked' : '') + `>` +
+          `<code>${escHtml(other.id)}</code>` +
+          `<span class="when-label">→ when</span>` +
+          `<select onchange="onRequiresBranchChange(${idx},'${escHtml(other.id)}',this)"` +
+          ` style="flex:0 0 auto;max-width:90px;font-size:11px;padding:2px 4px">${options}</select>` +
+          `</div>`;
+      }).join('');
+    });
+  }
+
+  function onRequiresToggle(idx, stepId, cb) {
+    const sel = cb.closest('.requires-row').querySelector('select');
+    onRequiresBranchChange(idx, stepId, sel);
+  }
+
+  function onRequiresBranchChange(idx, stepId, sel) {
+    if (!sel) return;
+    const branch = parseInt(sel.value) || 0;
+    const group = document.getElementById('step-requires-group-' + idx);
+    const cb = group?.querySelector(`input[type="checkbox"][data-step-id="${stepId}"]`);
+    if (cb) cb.value = stepId + ':' + branch;
+  }
+
+  // ── add step (HTMX) ────────────────────────────────────────────────────────
+  function addStep() {
+    const empty = document.getElementById('steps-empty');
+    if (empty) empty.remove();
+    const ids = [...document.querySelectorAll('[id^="step-row-"]')]
+      .map(r => { const i = r.id.replace('step-row-', ''); return (r.querySelector(`[name="step_id_${i}"]`)?.value || '').trim(); })
+      .filter(Boolean).join(',');
+    htmx.ajax('GET', '/step-row?index=' + stepCount + '&steps=' + encodeURIComponent(ids), {
+      target: '#steps-list',
+      swap: 'beforeend',
+    }).then(() => updateRequiresGroups());
+    stepCount++;
+  }
+
+  document.addEventListener('DOMContentLoaded', updateRequiresGroups);
+
+  // Disable inputs in hidden branch sections before submit so only the active
+  // section's names and signals are included in the form data.
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form[method="POST"]');
+    if (!form) return;
+    form.addEventListener('submit', () => {
+      document.querySelectorAll('[id^="binary-branches-"],[id^="pattern-branches-"]').forEach(div => {
+        if (div.style.display === 'none') {
+          div.querySelectorAll('input, select').forEach(el => { el.disabled = true; });
+        }
+      });
+    });
+  });
+
+  // ── script viewer ──────────────────────────────────────────────────────────
   function viewScript(idx) {
     const sel = document.getElementById('exec-script-select-' + idx);
     const path = sel.value;
@@ -432,49 +728,6 @@
       .catch(() => { codeEl.textContent = 'Failed to load script.'; });
   }
 
-  function updateRequiresGroups() {
-    // Collect all current (non-empty) step IDs from the DOM
-    const allSteps = [...document.querySelectorAll('[id^="step-row-"]')].map(row => {
-      const idx = row.id.replace('step-row-', '');
-      return { idx, id: (row.querySelector(`[name="step_id_${idx}"]`)?.value || '').trim() };
-    }).filter(s => s.id);
-
-    allSteps.forEach(({ idx, id }) => {
-      const group = document.getElementById('step-requires-group-' + idx);
-      if (!group) return;
-
-      // Preserve currently checked IDs before rebuilding
-      const checked = new Set(
-        [...group.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value)
-      );
-
-      const others = allSteps.filter(s => s.id !== id);
-      group.innerHTML = others.length
-        ? others.map(s => `
-            <label class="checkbox-item" data-step-id="${s.id}">
-              <input type="checkbox" name="step_requires_${idx}" value="${s.id}"
-                     ${checked.has(s.id) ? 'checked' : ''}>
-              <code>${s.id}</code>
-            </label>`).join('')
-        : '<span class="hint">No other steps defined yet.</span>';
-    });
-  }
-
-  function addStep() {
-    const empty = document.getElementById('steps-empty');
-    if (empty) empty.remove();
-    const ids = [...document.querySelectorAll('[id^="step-row-"]')]
-      .map(r => { const i = r.id.replace('step-row-', ''); return (r.querySelector(`[name="step_id_${i}"]`)?.value || '').trim(); })
-      .filter(Boolean).join(',');
-    htmx.ajax('GET', '/step-row?index=' + stepCount + '&steps=' + encodeURIComponent(ids), {
-      target: '#steps-list',
-      swap: 'beforeend',
-    }).then(() => updateRequiresGroups());
-    stepCount++;
-  }
-
-  document.addEventListener('DOMContentLoaded', updateRequiresGroups);
-
   // ── cron popover ──────────────────────────────────────────────────────────
   function toggleCronPopover(e) {
     e.stopPropagation();
@@ -491,9 +744,7 @@
   }
   function _closeCronOnOutside(e) {
     const p = document.getElementById('cron-popover');
-    if (p && !p.contains(e.target) && e.target.id !== 'cron-info-btn') {
-      closeCronPopover();
-    }
+    if (p && !p.contains(e.target) && e.target.id !== 'cron-info-btn') closeCronPopover();
   }
   function setCron(expr) {
     document.getElementById('cron-input').value = expr;

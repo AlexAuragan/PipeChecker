@@ -62,6 +62,7 @@ class Manager:
                 conn._targets = []
                 conn._load_error = str(e)
 
+
 class Connector(BaseModel, ABC):
     """
     Used to extract list of Target from various configs
@@ -97,6 +98,7 @@ class Connector(BaseModel, ABC):
             config_url: str = None,
             config_ssh: str = None,
     ) -> list[target.Target]:
+        """Fetch targets from one config source. Exactly one argument will be non-None."""
         pass
 
     def load_targets(self):
@@ -112,11 +114,10 @@ class Connector(BaseModel, ABC):
             raise ValueError("targets was not initialized, please call connector.load_targets() first")
         return self._targets
 
-
     def to_str(self):
         data = self.model_dump(mode="json")
         name = data.pop("name")
-        data = {k: v for k,v in data.items() if v}
+        data = {k: v for k, v in data.items() if v}
         return yaml.dump({name: data}, default_flow_style=False).strip()
 
     @staticmethod
@@ -126,6 +127,7 @@ class Connector(BaseModel, ABC):
         name, conf = next(iter(data.items()))
         cls = classes.connectors[ConnectorType(conf.pop("type")).value]
         return cls.model_validate({"name": name, **conf})
+
 
 class Caddy(Connector):
     type: Literal[ConnectorType.caddy] = ConnectorType.caddy
@@ -148,6 +150,7 @@ class Caddy(Connector):
 
         parsed = parse_caddyfile(content)
         return [target.Url(addr) for addr in parsed]
+
 
 class LinuxMachine(Connector):
     type: Literal[ConnectorType.linux_machine] = ConnectorType.linux_machine

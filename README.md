@@ -84,11 +84,10 @@ Commercial use is not permitted.
  * [ ] Runners
    * [x] Server side cron for all pipelines
    * [x] Proxmox
-   * [ ] Machine
+   * [x] Machine
    * [ ] Website
  * [x] Run loop
  * [x] Run history
    * [ ] Long term view
  * [ ] Set gravity for each pipeline or step (if it fails is it an error or just a warning ?)
  * [ ] Set up notification system (webhook, rss).
- * [x] Add info / helper for cron settings on web app
