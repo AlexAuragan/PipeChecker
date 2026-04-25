@@ -144,6 +144,9 @@ def init_db():
             if "success" in lsr_cols:
                 conn.execute(text("UPDATE livestepresult SET signal='fail' WHERE success=0 AND skipped=0"))
             conn.commit()
+        if "success" in lsr_cols:
+            conn.execute(text("ALTER TABLE livestepresult DROP COLUMN success"))
+            conn.commit()
 
         asr_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedstepresult")]
         if "duration" not in asr_cols:
@@ -156,4 +159,7 @@ def init_db():
             conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"))
             if "success" in asr_cols:
                 conn.execute(text("UPDATE archivedstepresult SET signal='fail' WHERE success=0 AND skipped=0"))
+            conn.commit()
+        if "success" in asr_cols:
+            conn.execute(text("ALTER TABLE archivedstepresult DROP COLUMN success"))
             conn.commit()
