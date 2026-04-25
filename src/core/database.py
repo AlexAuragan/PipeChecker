@@ -163,3 +163,9 @@ def init_db():
         if "success" in asr_cols:
             conn.execute(text("ALTER TABLE archivedstepresult DROP COLUMN success"))
             conn.commit()
+        if "tried_fix" in lsr_cols:
+            conn.execute(text("ALTER TABLE livestepresult DROP COLUMN tried_fix"))
+            conn.commit()
+        if "tried_fix" in asr_cols:
+            conn.execute(text("ALTER TABLE archivedstepresult DROP COLUMN tried_fix"))
+            conn.commit()

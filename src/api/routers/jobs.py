@@ -17,11 +17,12 @@ router = APIRouter(prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(
 
 class StepResultResponse(BaseModel):
     step_id: str
-    success: bool
+    signal: str
     stdout: str
     stderr: str
-    tried_fix: bool
+    branch: int
     skipped: bool
+    duration: float
 
 
 class PipelineResultResponse(BaseModel):
