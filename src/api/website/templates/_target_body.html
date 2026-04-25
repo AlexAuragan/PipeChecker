@@ -7,7 +7,7 @@
 
 {# ── per-target graph ──────────────────────────────────────────── #}
 <div class="graph-outer">
-  <div class="graph-container" data-edges='{{ edges }}'>
+  <div class="graph-container" data-edges='{{ edges }}' data-step-results='{{ step_results_json | default("{}") }}'>
     {% for column in columns %}
     <div class="graph-column">
       <div class="graph-col-label">Stage {{ loop.index0 }}</div>
@@ -16,7 +16,7 @@
       {% if sr %}
         {% set node_cls   = step_class(sr) %}
         {% set status_lbl = step_text(sr) %}
-        {% if (step.id, sr.branch) not in non_leaf_branches and not sr.skipped and sr.signal not in ('fail', 'crashed') %}
+        {% if (step.id, sr.branch) in non_leaf_branches and not sr.skipped and sr.signal not in ('fail', 'crashed') %}
           {% set status_lbl = "branch" %}
         {% endif %}
       {% else %}
@@ -40,7 +40,7 @@
 {% if sr %}
 <details class="step-details">
   <summary>
-    {% if (step.id, sr.branch) not in non_leaf_branches and not sr.skipped and sr.signal not in ('fail', 'crashed') %}
+    {% if (step.id, sr.branch) in non_leaf_branches and not sr.skipped and sr.signal not in ('fail', 'crashed') %}
     <span class="badge badge-gray">branch</span>
     {% else %}
     <span class="badge {{ step_badge(sr) }}">{{ step_text(sr) }}</span>

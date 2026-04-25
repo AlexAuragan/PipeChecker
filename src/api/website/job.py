@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from fastapi import Request, HTTPException, APIRouter, BackgroundTasks
@@ -78,6 +79,7 @@ def job_page(request: Request, job_id: UUID):
             "t_status":     result["status"],
             "duration":     result["duration"],
             "step_results": {s["step_id"]: s for s in result["steps"]},
+            "step_results_json": json.dumps({s["step_id"]: {"branch": s["branch"], "skipped": s["skipped"]} for s in result["steps"]}),
         }
         for result in job["results"]
     ]

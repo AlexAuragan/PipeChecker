@@ -625,7 +625,8 @@
       if (!edges.length) return;
 
       // ── draw arrows ─────────────────────────────────────────────────────
-      const markerId = 'arr' + Math.random().toString(36).slice(2, 8);
+      const markerId     = 'arr' + Math.random().toString(36).slice(2, 8);
+      const markerIdGray = markerId + 'g';
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.classList.add('arrows');
       svg.setAttribute('aria-hidden', 'true');
@@ -636,19 +637,28 @@
       });
 
       const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      defs.innerHTML = `<marker id="${markerId}" markerWidth="7" markerHeight="5"
-        refX="7" refY="2.5" orient="auto">
-        <polygon points="0 0,7 2.5,0 5" fill="#4361ee"/>
-      </marker>`;
+      defs.innerHTML = `
+        <marker id="${markerId}" markerWidth="7" markerHeight="5"
+          refX="7" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#4361ee"/>
+        </marker>
+        <marker id="${markerIdGray}" markerWidth="7" markerHeight="5"
+          refX="7" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#9496be"/>
+        </marker>`;
       svg.appendChild(defs);
       container.prepend(svg); // prepend so arrows render behind cards
 
+      const stepResults = JSON.parse(container.dataset.stepResults || '{}');
       const cr = container.getBoundingClientRect();
 
       for (const edge of edges) {
         const fromEl = container.querySelector('[data-step-id="' + CSS.escape(edge.from) + '"]');
         const toEl   = container.querySelector('[data-step-id="' + CSS.escape(edge.to)   + '"]');
         if (!fromEl || !toEl) continue;
+
+        const sr = stepResults[edge.from];
+        const used = !sr || (sr.branch === edge.branch && !sr.skipped);
 
         const fr = fromEl.getBoundingClientRect();
         const tr = toEl.getBoundingClientRect();
@@ -661,13 +671,15 @@
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M${x1},${y1} C${x1+cx},${y1} ${x2-cx},${y2} ${x2},${y2}`);
-        path.setAttribute('stroke', '#4361ee');
-        path.setAttribute('stroke-width', '2');
+        path.setAttribute('stroke', used ? '#4361ee' : '#9496be');
+        path.setAttribute('stroke-width', used ? '2' : '1.5');
         path.setAttribute('stroke-dasharray', '6 3');
+        path.setAttribute('stroke-opacity', used ? '1' : '0.4');
         path.setAttribute('fill', 'none');
-        path.setAttribute('marker-end', `url(#${markerId})`);
+        path.setAttribute('marker-end', `url(#${used ? markerId : markerIdGray})`);
         path.dataset.from = edge.from;
         path.dataset.to   = edge.to;
+        path.dataset.used = used ? '1' : '0';
         svg.appendChild(path);
       }
 
@@ -682,7 +694,8 @@
           if (node) {
             const id = node.dataset.stepId;
             paths.forEach(p => {
-              p.style.opacity = (p.dataset.from === id || p.dataset.to === id) ? '' : '0.15';
+              const connected = p.dataset.from === id || p.dataset.to === id;
+              p.style.opacity = connected ? (p.dataset.used === '1' ? '1' : '0.4') : '0.1';
             });
           } else {
             paths.forEach(p => { p.style.opacity = ''; });
