@@ -566,8 +566,61 @@
       container.querySelectorAll('svg.arrows').forEach(s => s.remove());
 
       const edges = JSON.parse(container.dataset.edges || '[]');
+
+      // ── branch-offset layout ────────────────────────────────────────────
+      // Each node's y is derived from its incoming edges: branch 0 = same
+      // level as predecessor, branch N = N * BRANCH_STEP px below it.
+      // This naturally separates "success path" (branch 0) from "fallback
+      // path" (branch 1+), so long-range arrows don't cut through unrelated cards.
+      const BRANCH_STEP = 150;
+      const NODE_GAP    = 20;
+
+      const incomingByNode = {};
+      edges.forEach(e => {
+        (incomingByNode[e.to] = incomingByNode[e.to] || []).push(e);
+      });
+
+      const nodeY = {};
+      [...container.querySelectorAll('.graph-column')].forEach(col => {
+        const nodes = [...col.querySelectorAll('.step-node')];
+        if (!nodes.length) return;
+
+        nodes.forEach(node => {
+          const id  = node.dataset.stepId;
+          const inc = incomingByNode[id] || [];
+          nodeY[id] = inc.length
+            ? Math.min(...inc.map(e => (nodeY[e.from] ?? 0) + e.branch * BRANCH_STEP))
+            : 0;
+        });
+
+        // Sort by ideal y, then push down any card that would overlap the previous
+        nodes.sort((a, b) => nodeY[a.dataset.stepId] - nodeY[b.dataset.stepId]);
+        let cursor = 0;
+        nodes.forEach(node => {
+          const id = node.dataset.stepId;
+          nodeY[id] = Math.max(nodeY[id], cursor);
+          cursor = nodeY[id] + node.offsetHeight + NODE_GAP;
+        });
+
+        // Position cards absolutely within the column
+        const label  = col.querySelector('.graph-col-label');
+        // label.offsetHeight + margin-bottom (8px) + flex gap (20px)
+        const labelH = label ? label.offsetHeight + 28 : 0;
+
+        col.style.position = 'relative';
+        col.style.width    = '200px';
+        col.style.height   = (labelH + cursor - NODE_GAP) + 'px';
+
+        nodes.forEach(node => {
+          node.style.position = 'absolute';
+          node.style.top      = (labelH + nodeY[node.dataset.stepId]) + 'px';
+          node.style.left     = '0';
+        });
+      });
+
       if (!edges.length) return;
 
+      // ── draw arrows ─────────────────────────────────────────────────────
       const markerId = 'arr' + Math.random().toString(36).slice(2, 8);
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.classList.add('arrows');
@@ -588,8 +641,6 @@
 
       const cr = container.getBoundingClientRect();
 
-      const colEls = [...container.querySelectorAll('.graph-column')];
-
       for (const edge of edges) {
         const fromEl = container.querySelector('[data-step-id="' + CSS.escape(edge.from) + '"]');
         const toEl   = container.querySelector('[data-step-id="' + CSS.escape(edge.to)   + '"]');
@@ -602,33 +653,10 @@
         const y1 = (fr.top + fr.bottom) / 2 - cr.top;
         const x2 = tr.left   - cr.left;
         const y2 = (tr.top + tr.bottom) / 2 - cr.top;
-
-        const fromColIdx = colEls.findIndex(c => c.contains(fromEl));
-        const toColIdx   = colEls.findIndex(c => c.contains(toEl));
+        const cx = (x2 - x1) * 0.5;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-        if (toColIdx - fromColIdx > 1) {
-          // Edge skips columns — arc above intermediate nodes to avoid overlap
-          const intermediateCols = colEls.slice(fromColIdx + 1, toColIdx);
-          let minNodeTop = Infinity;
-          intermediateCols.forEach(col => {
-            col.querySelectorAll('.step-node').forEach(node => {
-              minNodeTop = Math.min(minNodeTop, node.getBoundingClientRect().top - cr.top);
-            });
-          });
-          const yAbove = (minNodeTop !== Infinity ? minNodeTop : Math.min(y1, y2)) - 24;
-          const xMid   = (x1 + x2) / 2;
-          const ctrl   = (x2 - x1) * 0.3;
-          path.setAttribute('d',
-            `M${x1},${y1} C${x1+ctrl},${y1} ${xMid},${yAbove} ${xMid},${yAbove}` +
-            ` S${x2-ctrl},${y2} ${x2},${y2}`
-          );
-        } else {
-          const cx = (x2 - x1) * 0.5;
-          path.setAttribute('d', `M${x1},${y1} C${x1+cx},${y1} ${x2-cx},${y2} ${x2},${y2}`);
-        }
-
+        path.setAttribute('d', `M${x1},${y1} C${x1+cx},${y1} ${x2-cx},${y2} ${x2},${y2}`);
         path.setAttribute('stroke', '#4361ee');
         path.setAttribute('stroke-width', '2');
         path.setAttribute('stroke-dasharray', '6 3');
