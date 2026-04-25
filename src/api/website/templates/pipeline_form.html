@@ -149,10 +149,11 @@
       flex-shrink: 0;
       font-weight: 600;
     }
-    .signal-select[data-signal="ok"]      { color: var(--g); border-color: var(--g); }
-    .signal-select[data-signal="warning"] { color: var(--o); border-color: var(--o); }
-    .signal-select[data-signal="update"]  { color: var(--b); border-color: var(--b); }
-    .signal-select[data-signal="fail"]    { color: var(--r); border-color: var(--r); }
+    .signal-select[data-signal="ok"]        { color: var(--g); border-color: var(--g); }
+    .signal-select[data-signal="update"]    { color: var(--b); border-color: var(--b); }
+    .signal-select[data-signal="installed"] { color: #7c3aed; border-color: #7c3aed; }
+    .signal-select[data-signal="warning"]   { color: var(--o); border-color: var(--o); }
+    .signal-select[data-signal="fail"]      { color: var(--r); border-color: var(--r); }
 
     /* ── branch UI ─────────────────────────────────────────────── */
     .branch-badge {
@@ -574,8 +575,9 @@
       `<select name="step_branch_signals_${idx}" data-role="branch-signal"` +
       ` class="signal-select" data-signal="ok" onchange="onSignalChange(this)">` +
       `<option value="ok" selected>ok</option>` +
-      `<option value="warning">warning</option>` +
       `<option value="update">update</option>` +
+      `<option value="installed">installed</option>` +
+      `<option value="warning">warning</option>` +
       `<option value="fail">fail</option>` +
       `</select>` +
       `<input type="text" name="step_check_patterns_${idx}" data-role="pattern-value"` +

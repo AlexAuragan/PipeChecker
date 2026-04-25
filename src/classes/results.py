@@ -6,9 +6,10 @@ from src.classes.target import Target
 _SEVERITY: dict[Status, int] = {
     Status.ok: 0,
     Status.update: 1,
-    Status.warning: 2,
-    Status.fail: 3,
-    Status.crashed: 4,
+    Status.installed: 2,
+    Status.warning: 3,
+    Status.fail: 4,
+    Status.crashed: 5,
 }
 
 

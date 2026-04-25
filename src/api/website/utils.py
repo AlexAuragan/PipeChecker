@@ -223,7 +223,7 @@ def build_edges(steps) -> str:
     return json.dumps(edges)
 
 
-_SIGNAL_GROUP = {"ok": "green", "update": "orange", "warning": "orange", "fail": "red", "crashed": "red"}
+_SIGNAL_GROUP = {"ok": "green", "update": "orange", "installed": "orange", "warning": "orange", "fail": "red", "crashed": "red"}
 
 
 def signal_group(signal) -> str:
@@ -242,8 +242,9 @@ def status_badge(status) -> str:
         "pending":   "badge-gray",
         "cancelled": "badge-gray",
         "ok":        "badge-green",
-        "warning":   "badge-orange",
         "update":    "badge-blue",
+        "installed": "badge-purple",
+        "warning":   "badge-orange",
         "fail":      "badge-red",
         "crashed":   "badge-crashed",
     }.get(s, "badge-gray")
@@ -251,12 +252,12 @@ def status_badge(status) -> str:
 
 # Maps Status enum values to CSS utility classes used in templates.
 _SIGNAL_CLASS = {
-    "ok": "status-green", "warning": "status-orange", "update": "status-running",
-    "fail": "status-red", "crashed": "status-red",
+    "ok": "status-green", "update": "status-running", "installed": "status-installed",
+    "warning": "status-orange", "fail": "status-red", "crashed": "status-red",
 }
 _SIGNAL_BADGE = {
-    "ok": "badge-green", "warning": "badge-orange", "update": "badge-blue",
-    "fail": "badge-red", "crashed": "badge-crashed",
+    "ok": "badge-green", "update": "badge-blue", "installed": "badge-purple",
+    "warning": "badge-orange", "fail": "badge-red", "crashed": "badge-crashed",
 }
 
 

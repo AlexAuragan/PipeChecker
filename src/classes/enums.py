@@ -3,8 +3,9 @@ from enum import Enum
 
 class Status(str, Enum):
     ok = "ok"
-    warning = "warning"
     update = "update"
+    installed = "installed"
+    warning = "warning"
     fail = "fail"
     crashed = "crashed"
 

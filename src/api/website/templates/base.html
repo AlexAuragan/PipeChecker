@@ -118,6 +118,7 @@
     .badge-orange  { border-color: var(--o);  color: var(--o);  background: var(--o-bg); }
     .badge-blue    { border-color: var(--b);  color: var(--b);  background: var(--b-bg); }
     .badge-gray    { border-color: var(--gr); color: var(--gr); background: var(--gr-bg); }
+    .badge-purple  { border-color: #7c3aed;  color: #7c3aed;  background: #faf5ff; }
     .badge-crashed { border-color: #7c3aed;  color: #7c3aed;  background: #faf5ff; }
 
     /* ── table ──────────────────────────────────────────────────── */
@@ -278,17 +279,19 @@
     }
 
     /* status variants */
-    .status-green  { border-color: var(--g); background: var(--g-bg); box-shadow: 3px 3px 0 var(--g-sh); }
-    .status-red    { border-color: var(--r); background: var(--r-bg); box-shadow: 3px 3px 0 var(--r-sh); }
-    .status-orange { border-color: var(--o); background: var(--o-bg); box-shadow: 3px 3px 0 var(--o-sh); }
-    .status-running{ border-color: var(--b); background: var(--b-bg); box-shadow: 3px 3px 0 var(--b-sh); }
-    .status-skipped{ border: 2px dashed var(--gr); background: var(--gr-bg); opacity: .65; box-shadow: none; }
-    .status-pending{ border-color: var(--border); box-shadow: 2px 2px 0 var(--border); }
+    .status-green    { border-color: var(--g); background: var(--g-bg); box-shadow: 3px 3px 0 var(--g-sh); }
+    .status-red      { border-color: var(--r); background: var(--r-bg); box-shadow: 3px 3px 0 var(--r-sh); }
+    .status-orange   { border-color: var(--o); background: var(--o-bg); box-shadow: 3px 3px 0 var(--o-sh); }
+    .status-running  { border-color: var(--b); background: var(--b-bg); box-shadow: 3px 3px 0 var(--b-sh); }
+    .status-installed{ border-color: #7c3aed; background: #faf5ff;     box-shadow: 3px 3px 0 #e9d5ff; }
+    .status-skipped  { border: 2px dashed var(--gr); background: var(--gr-bg); opacity: .65; box-shadow: none; }
+    .status-pending  { border-color: var(--border); box-shadow: 2px 2px 0 var(--border); }
 
-    .status-green  .step-node-status { color: var(--g); }
-    .status-red    .step-node-status { color: var(--r); }
-    .status-orange .step-node-status { color: var(--o); }
-    .status-running .step-node-status { color: var(--b); }
+    .status-green     .step-node-status { color: var(--g); }
+    .status-red       .step-node-status { color: var(--r); }
+    .status-orange    .step-node-status { color: var(--o); }
+    .status-running   .step-node-status { color: var(--b); }
+    .status-installed .step-node-status { color: #7c3aed; }
     .status-skipped .step-node-status, .status-pending .step-node-status { color: var(--ink-light); }
 
     /* ── step accordions ────────────────────────────────────────── */
