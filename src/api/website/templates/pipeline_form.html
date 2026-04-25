@@ -705,11 +705,11 @@
     // Steps available to add: not self, has a real ID, not already required, has ≥1 non-fail branch
     const available = allSteps.filter(s => s.id !== myId && !s.id.startsWith('__new_') && !reqSet.has(s.id) && s.branches.length > 0);
 
-    // Inline add-requirement row (hidden until + clicked)
+    // Inline add-requirement row (visible when steps are available)
     const addRow = document.createElement('div');
     addRow.id = `req-add-row-${idx}`;
     addRow.className = 'requires-row';
-    Object.assign(addRow.style, { display: 'none', flexWrap: 'wrap', gap: '6px', marginTop: '4px' });
+    Object.assign(addRow.style, { display: available.length ? '' : 'none', flexWrap: 'wrap', gap: '6px', marginTop: '4px' });
 
     const stepSel = document.createElement('select');
     stepSel.id = `req-step-sel-${idx}`;
@@ -738,24 +738,8 @@
     confirmBtn.type = 'button'; confirmBtn.className = 'btn-sm'; confirmBtn.textContent = 'Add';
     confirmBtn.addEventListener('click', () => confirmAddRequirement(idx));
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button'; cancelBtn.className = 'btn-sm btn-remove'; cancelBtn.textContent = '✕';
-    cancelBtn.addEventListener('click', () => cancelAddRequirement(idx));
-
-    addRow.append(stepSel, branchSel, confirmBtn, cancelBtn);
+    addRow.append(stepSel, branchSel, confirmBtn);
     group.appendChild(addRow);
-
-    // + Add button (hidden when no steps are available to add)
-    const plusBtn = document.createElement('button');
-    plusBtn.type = 'button'; plusBtn.id = `req-add-btn-${idx}`;
-    plusBtn.className = 'btn-sm'; plusBtn.textContent = '+ Add';
-    plusBtn.style.cssText = 'margin-top:4px; font-size:11px';
-    if (!available.length) plusBtn.style.display = 'none';
-    plusBtn.addEventListener('click', () => showAddRequirementRow(idx));
-    group.appendChild(plusBtn);
-
-    // Re-open add row if it was open before the rebuild
-    if (group.dataset.addOpen === '1') showAddRequirementRow(idx);
   }
 
   function updateRequiresGroups() {
@@ -806,24 +790,6 @@
     renderPreviewGraph();
   }
 
-  function showAddRequirementRow(idx) {
-    const group = document.getElementById('step-requires-group-' + idx);
-    if (group) group.dataset.addOpen = '1';
-    const addRow = document.getElementById(`req-add-row-${idx}`);
-    const plusBtn = document.getElementById(`req-add-btn-${idx}`);
-    if (addRow) addRow.style.display = '';
-    if (plusBtn) plusBtn.style.display = 'none';
-  }
-
-  function cancelAddRequirement(idx) {
-    const group = document.getElementById('step-requires-group-' + idx);
-    if (group) group.dataset.addOpen = '';
-    const addRow = document.getElementById(`req-add-row-${idx}`);
-    const plusBtn = document.getElementById(`req-add-btn-${idx}`);
-    if (addRow) addRow.style.display = 'none';
-    if (plusBtn) plusBtn.style.display = '';
-  }
-
   function onReqStepChange(idx) {
     const stepSel   = document.getElementById(`req-step-sel-${idx}`);
     const branchSel = document.getElementById(`req-branch-sel-${idx}`);
@@ -849,7 +815,6 @@
     const group = document.getElementById('step-requires-group-' + idx);
     if (!group) return;
     _addReqInput(group, idx, stepId, branch);
-    group.dataset.addOpen = '';
     updateRequiresGroups();
   }
 
