@@ -617,7 +617,7 @@
   // ── requires (add-only design) ─────────────────────────────────────────────
   function _addReqInput(group, idx, stepId, branch) {
     const exists = [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
-      .some(inp => inp.value.split(':')[0] === stepId);
+      .some(inp => inp.value === `${stepId}:${branch}`);
     if (exists) return;
     const inp = document.createElement('input');
     inp.type = 'hidden';
@@ -675,7 +675,7 @@
       const parts = inp.value.split(':');
       return { stepId: parts[0], branch: parseInt(parts[1]) || 0 };
     });
-    const reqSet = new Set(reqs.map(r => r.stepId));
+    const reqPairs = new Set(reqs.map(r => `${r.stepId}:${r.branch}`));
 
     // Preserve any in-progress add-row selections before tearing down
     const savedStep   = document.getElementById(`req-step-sel-${idx}`)?.value   || '';
@@ -684,26 +684,26 @@
     // Remove visible children, keep hidden inputs
     [...group.children].filter(c => c.type !== 'hidden').forEach(c => c.remove());
 
-    // One row per current requirement — branch shown as an inline select
+    // One row per current requirement — branch shown as a fixed label
     reqs.forEach(req => {
       const dep = stepMap[req.stepId];
-      const branchOptions = dep?.branches.map(b =>
-        `<option value="${b.index}"${b.index === req.branch ? ' selected' : ''}>${escHtml(b.name)}</option>`
-      ).join('') || `<option value="${req.branch}">branch ${req.branch}</option>`;
+      const branchName = dep?.branches.find(b => b.index === req.branch)?.name ?? `branch ${req.branch}`;
       const row = document.createElement('div');
       row.className = 'requires-row';
       row.innerHTML =
         `<code>${escHtml(req.stepId)}</code>` +
         `<span class="when-label">→ when</span>` +
-        `<select style="font-size:11px;max-width:120px"` +
-        ` onchange="onReqBranchChange(${idx},'${escHtml(req.stepId)}',this)">${branchOptions}</select>` +
+        `<span style="font-size:11px;padding:2px 6px;background:var(--accent-bg);border-radius:3px;border:1px solid var(--border)">${escHtml(branchName)}</span>` +
         `<button type="button" class="btn-sm btn-remove" style="margin-left:auto"` +
-        ` onclick="removeRequirement(${idx},'${escHtml(req.stepId)}')">✕</button>`;
+        ` onclick="removeRequirement(${idx},'${escHtml(req.stepId)}',${req.branch})">✕</button>`;
       group.appendChild(row);
     });
 
-    // Steps available to add: not self, has a real ID, not already required, has ≥1 non-fail branch
-    const available = allSteps.filter(s => s.id !== myId && !s.id.startsWith('__new_') && !reqSet.has(s.id) && s.branches.length > 0);
+    // Steps available to add: not self, has a real ID, has ≥1 non-fail branch not yet required
+    const available = allSteps.filter(s =>
+      s.id !== myId && !s.id.startsWith('__new_') && s.branches.length > 0 &&
+      s.branches.some(b => !reqPairs.has(`${s.id}:${b.index}`))
+    );
 
     // Inline add-requirement row (visible when steps are available)
     const addRow = document.createElement('div');
@@ -723,14 +723,16 @@
     branchSel.style.cssText = 'font-size:11px; max-width:130px';
     branchSel.innerHTML = '<option value="">—</option>';
 
-    // Restore in-progress step/branch selections if the step is still in the available list
+    // Restore in-progress step/branch selections if the step is still available with that branch
     if (savedStep && available.some(s => s.id === savedStep)) {
       stepSel.value = savedStep;
       const depStep = allSteps.find(s => s.id === savedStep);
       if (depStep) {
-        branchSel.innerHTML = depStep.branches
+        const alreadyRequired = new Set(reqs.filter(r => r.stepId === savedStep).map(r => r.branch));
+        const availBranches = depStep.branches.filter(b => !alreadyRequired.has(b.index));
+        branchSel.innerHTML = availBranches
           .map(b => `<option value="${b.index}">${escHtml(b.name)}</option>`).join('');
-        if (savedBranch) branchSel.value = savedBranch;
+        if (savedBranch && availBranches.some(b => b.index === parseInt(savedBranch))) branchSel.value = savedBranch;
       }
     }
 
@@ -796,6 +798,12 @@
     if (!stepSel || !branchSel) return;
     const stepId = stepSel.value;
     if (!stepId) { branchSel.innerHTML = '<option value="">—</option>'; return; }
+    const group = document.getElementById('step-requires-group-' + idx);
+    const alreadyRequired = new Set(
+      [...(group?.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`) || [])]
+        .filter(inp => inp.value.split(':')[0] === stepId)
+        .map(inp => parseInt(inp.value.split(':')[1]) || 0)
+    );
     const depRow = [...document.querySelectorAll('[id^="step-row-"]')].find(r => {
       const ridx = parseInt(r.id.replace('step-row-', ''));
       return (r.querySelector(`[name="step_id_${ridx}"]`)?.value || '').trim() === stepId;
@@ -803,6 +811,7 @@
     if (!depRow) { branchSel.innerHTML = ''; return; }
     const ridx = parseInt(depRow.id.replace('step-row-', ''));
     branchSel.innerHTML = getStepBranchInfo(ridx)
+      .filter(b => !alreadyRequired.has(b.index))
       .map(b => `<option value="${b.index}">${escHtml(b.name)}</option>`).join('');
   }
 
@@ -818,21 +827,12 @@
     updateRequiresGroups();
   }
 
-  function removeRequirement(idx, stepId) {
+  function removeRequirement(idx, stepId, branch) {
     const group = document.getElementById('step-requires-group-' + idx);
     if (!group) return;
     [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
-      .filter(inp => inp.value.split(':')[0] === stepId)
+      .filter(inp => inp.value === `${stepId}:${branch}`)
       .forEach(inp => inp.remove());
-    updateRequiresGroups();
-  }
-
-  function onReqBranchChange(idx, stepId, sel) {
-    const group = document.getElementById('step-requires-group-' + idx);
-    if (!group) return;
-    const inp = [...group.querySelectorAll(`input[type="hidden"][name="step_requires_${idx}"]`)]
-      .find(i => i.value.split(':')[0] === stepId);
-    if (inp) inp.value = `${stepId}:${parseInt(sel.value) || 0}`;
     updateRequiresGroups();
   }
 

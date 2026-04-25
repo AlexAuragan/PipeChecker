@@ -56,6 +56,14 @@ class PipelineStep(BaseModel):
             raise ValueError(
                 "Step own id cannot be in requires."
             )
+        seen_pairs: set[tuple[str, int]] = set()
+        for req in self.requires:
+            pair = (req.step, req.branch)
+            if pair in seen_pairs:
+                raise ValueError(
+                    f"Duplicate requirement ({req.step}, branch {req.branch}) in step '{self.id}'."
+                )
+            seen_pairs.add(pair)
 
         if self.check_method == CheckMethod.finish_in_less_than:
             self.check_patterns = [float(x) for x in self.check_patterns]

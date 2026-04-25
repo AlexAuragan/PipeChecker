@@ -588,6 +588,8 @@
 
       const cr = container.getBoundingClientRect();
 
+      const colEls = [...container.querySelectorAll('.graph-column')];
+
       for (const edge of edges) {
         const fromEl = container.querySelector('[data-step-id="' + CSS.escape(edge.from) + '"]');
         const toEl   = container.querySelector('[data-step-id="' + CSS.escape(edge.to)   + '"]');
@@ -600,10 +602,33 @@
         const y1 = (fr.top + fr.bottom) / 2 - cr.top;
         const x2 = tr.left   - cr.left;
         const y2 = (tr.top + tr.bottom) / 2 - cr.top;
-        const cx = (x2 - x1) * 0.5;
+
+        const fromColIdx = colEls.findIndex(c => c.contains(fromEl));
+        const toColIdx   = colEls.findIndex(c => c.contains(toEl));
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', `M${x1},${y1} C${x1+cx},${y1} ${x2-cx},${y2} ${x2},${y2}`);
+
+        if (toColIdx - fromColIdx > 1) {
+          // Edge skips columns — arc above intermediate nodes to avoid overlap
+          const intermediateCols = colEls.slice(fromColIdx + 1, toColIdx);
+          let minNodeTop = Infinity;
+          intermediateCols.forEach(col => {
+            col.querySelectorAll('.step-node').forEach(node => {
+              minNodeTop = Math.min(minNodeTop, node.getBoundingClientRect().top - cr.top);
+            });
+          });
+          const yAbove = (minNodeTop !== Infinity ? minNodeTop : Math.min(y1, y2)) - 24;
+          const xMid   = (x1 + x2) / 2;
+          const ctrl   = (x2 - x1) * 0.3;
+          path.setAttribute('d',
+            `M${x1},${y1} C${x1+ctrl},${y1} ${xMid},${yAbove} ${xMid},${yAbove}` +
+            ` S${x2-ctrl},${y2} ${x2},${y2}`
+          );
+        } else {
+          const cx = (x2 - x1) * 0.5;
+          path.setAttribute('d', `M${x1},${y1} C${x1+cx},${y1} ${x2-cx},${y2} ${x2},${y2}`);
+        }
+
         path.setAttribute('stroke', '#4361ee');
         path.setAttribute('stroke-width', '2');
         path.setAttribute('stroke-dasharray', '6 3');
