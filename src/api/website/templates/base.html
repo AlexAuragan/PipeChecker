@@ -197,6 +197,7 @@
     .info-item span { font-size: 14px; font-weight: 500; }
 
     /* ── graph panel ────────────────────────────────────────────── */
+    svg.arrows path { transition: opacity .15s; }
     .graph-outer {
       background: var(--surface);
       border: 2px solid var(--ink);
@@ -637,7 +638,7 @@
         <polygon points="0 0,7 2.5,0 5" fill="#4361ee"/>
       </marker>`;
       svg.appendChild(defs);
-      container.appendChild(svg);
+      container.prepend(svg); // prepend so arrows render behind cards
 
       const cr = container.getBoundingClientRect();
 
@@ -662,7 +663,32 @@
         path.setAttribute('stroke-dasharray', '6 3');
         path.setAttribute('fill', 'none');
         path.setAttribute('marker-end', `url(#${markerId})`);
+        path.dataset.from = edge.from;
+        path.dataset.to   = edge.to;
         svg.appendChild(path);
+      }
+
+      // Hover: dim arrows not connected to the hovered card.
+      // Uses event delegation so re-renders don't stack duplicate listeners.
+      if (!container.dataset.hoverSetup) {
+        container.dataset.hoverSetup = '1';
+
+        container.addEventListener('mouseover', e => {
+          const node  = e.target.closest('.step-node');
+          const paths = [...container.querySelectorAll('svg.arrows path')];
+          if (node) {
+            const id = node.dataset.stepId;
+            paths.forEach(p => {
+              p.style.opacity = (p.dataset.from === id || p.dataset.to === id) ? '' : '0.15';
+            });
+          } else {
+            paths.forEach(p => { p.style.opacity = ''; });
+          }
+        });
+
+        container.addEventListener('mouseleave', () => {
+          container.querySelectorAll('svg.arrows path').forEach(p => { p.style.opacity = ''; });
+        });
       }
     });
   }
