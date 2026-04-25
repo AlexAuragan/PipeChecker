@@ -677,6 +677,10 @@
     });
     const reqSet = new Set(reqs.map(r => r.stepId));
 
+    // Preserve any in-progress add-row selections before tearing down
+    const savedStep   = document.getElementById(`req-step-sel-${idx}`)?.value   || '';
+    const savedBranch = document.getElementById(`req-branch-sel-${idx}`)?.value || '';
+
     // Remove visible children, keep hidden inputs
     [...group.children].filter(c => c.type !== 'hidden').forEach(c => c.remove());
 
@@ -718,6 +722,17 @@
     branchSel.id = `req-branch-sel-${idx}`;
     branchSel.style.cssText = 'font-size:11px; max-width:130px';
     branchSel.innerHTML = '<option value="">—</option>';
+
+    // Restore in-progress step/branch selections if the step is still in the available list
+    if (savedStep && available.some(s => s.id === savedStep)) {
+      stepSel.value = savedStep;
+      const depStep = allSteps.find(s => s.id === savedStep);
+      if (depStep) {
+        branchSel.innerHTML = depStep.branches
+          .map(b => `<option value="${b.index}">${escHtml(b.name)}</option>`).join('');
+        if (savedBranch) branchSel.value = savedBranch;
+      }
+    }
 
     const confirmBtn = document.createElement('button');
     confirmBtn.type = 'button'; confirmBtn.className = 'btn-sm'; confirmBtn.textContent = 'Add';
