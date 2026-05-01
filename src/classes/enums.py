@@ -22,6 +22,12 @@ class RunnerType(str, Enum):
     web = "web"
 
 
+class AlertConnectorType(str, Enum):
+    rss = "rss"
+    webhook = "webhook"
+    discord = "discord"
+
+
 class ExecMethod(str, Enum):
     command = "command"
     # "script" means exec is a path relative to SCRIPTS_FOLDER; the runner decides where to run it

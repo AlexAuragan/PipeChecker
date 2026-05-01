@@ -288,6 +288,18 @@ def source_badge(source) -> str:
     return {"manual": "badge-gray", "cron": "badge-blue", "event": "badge-orange"}.get(s, "badge-gray")
 
 
+def signal_badge(signal) -> str:
+    """Map a signal string or Status enum → CSS badge class."""
+    s = signal.value if hasattr(signal, "value") else str(signal)
+    return _SIGNAL_BADGE.get(s, "badge-gray")
+
+
+def fmt_datetime(dt) -> str:
+    if dt is None:
+        return "—"
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
 def fmt_duration(seconds: float) -> str:
     if seconds < 1:
         return f"{seconds * 1000:.0f}ms"
@@ -305,10 +317,12 @@ templates.env.filters["tojson"] = lambda v: json.dumps(v)
 templates.env.globals.update(
     status_badge=status_badge,
     signal_group=signal_group,
+    signal_badge=signal_badge,
     source_badge=source_badge,
     step_class=step_class,
     step_badge=step_badge,
     step_text=step_text,
     fmt_duration=fmt_duration,
+    fmt_datetime=fmt_datetime,
     get_step_branches=get_step_branches,
 )

@@ -98,10 +98,18 @@ async def lifespan(app: FastAPI):
 
 
 def load_and_init() -> Manager:
-    """Load connectors from disk and fetch their targets (blocking)."""
-    m = storage.load_manager()
-    m.load_targets()
-    return m
+    """Load connector configs from disk. Targets are loaded lazily on first use."""
+    return storage.load_manager()
+
+
+def _ensure_targets_loaded(pipeline: Pipeline, manager: Manager) -> None:
+    """Load targets for any connector in this pipeline that hasn't been loaded yet."""
+    for connector_name in pipeline.connectors:
+        if connector_name not in manager:
+            continue
+        connector = manager.get(connector_name)
+        if not connector.is_loaded:
+            connector.load_targets()
 
 
 def get_manager(request: Request) -> Manager:
@@ -192,6 +200,43 @@ from src.core import jobs, run  # noqa: E402
 from src.core.database import JobStatus  # noqa: E402
 
 
+def _fire_alerts(result: "PipelineResult", job_id: UUID) -> None:  # type: ignore[name-defined]
+    """Check alert configs against a pipeline result and dispatch/record any matches."""
+    from src.classes.alert import SentAlert
+    try:
+        alerts = storage.load_alerts()
+        if not alerts:
+            return
+        for alert_cfg in alerts:
+            if alert_cfg.pipeline is not None and alert_cfg.pipeline != result.pipeline_name:
+                continue
+            if result.status not in alert_cfg.on_signals:
+                continue
+            sent = SentAlert(
+                alert_name=alert_cfg.name,
+                pipeline_name=result.pipeline_name,
+                target_id=str(result.target.id),
+                target_name=result.target.name,
+                signal=result.status,
+                url=f"{config.BASE_URL}/job/{job_id}",
+            )
+            jobs.record_sent_alert(sent)
+            if alert_cfg.connector:
+                try:
+                    connector = next(
+                        (c for c in storage.load_alert_connectors() if c.name == alert_cfg.connector),
+                        None,
+                    )
+                    if connector:
+                        connector.send(sent)
+                    else:
+                        print(f"Alert connector '{alert_cfg.connector}' not found")
+                except Exception as e:
+                    print(f"Alert connector '{alert_cfg.connector}' failed: {e}")
+    except Exception as e:
+        print(f"Alert firing failed for job {job_id}: {e}")
+
+
 async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> None:
     """Run a pipeline in a background thread, updating the job status in the DB."""
     print(f"running job {job_id} on pipeline {pipeline_name}")
@@ -201,11 +246,28 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
         if pipeline_name not in pipelines:
             jobs.set_job_status(job_id, JobStatus.failed)
             return
+
+        pipeline = pipelines[pipeline_name]
+
+        needs_loading = any(
+            not manager.get(c).is_loaded
+            for c in pipeline.connectors
+            if c in manager
+        )
+        if needs_loading:
+            jobs.set_job_phase(job_id, "Loading targets…")
+            await asyncio.to_thread(_ensure_targets_loaded, pipeline, manager)
+            jobs.set_job_phase(job_id, None)
+
+        def on_result(r):
+            jobs.write_pipeline_result(job_id, r)
+            _fire_alerts(r, job_id)
+
         await asyncio.to_thread(
             run.run_pipeline,
-            pipelines[pipeline_name],
+            pipeline,
             manager,
-            lambda r: jobs.write_pipeline_result(job_id, r),
+            on_result,
             lambda: jobs.is_cancelled(job_id),
         )
         if jobs.is_cancelled(job_id):

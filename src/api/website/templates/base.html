@@ -294,37 +294,70 @@
     .status-installed .step-node-status { color: #7c3aed; }
     .status-skipped .step-node-status, .status-pending .step-node-status { color: var(--ink-light); }
 
-    /* ── step accordions ────────────────────────────────────────── */
-    .step-details {
-      margin: 6px 0;
+    /* ── step nodes — clickable ─────────────────────────────────── */
+    .step-node { cursor: pointer; }
+    .step-node-selected {
+      outline: 2.5px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* ── step detail panel ──────────────────────────────────────── */
+    .step-detail-panel {
       background: var(--surface);
-      border: 2px solid var(--border);
+      border: 2px solid var(--ink);
+      border-top: none;
+      border-radius: 0 0 16px 16px;
+      padding: 20px 24px 20px;
+      margin: -12px 0 24px;
+      position: relative;
+    }
+    .step-detail-panel .detail-close {
+      position: absolute;
+      top: 10px; right: 12px;
+      background: none; border: none;
+      font-size: 13px; cursor: pointer;
+      color: var(--ink-light); padding: 2px 6px; line-height: 1;
+    }
+    .step-detail-panel .detail-close:hover { color: var(--ink); }
+    .step-detail-panel h3 {
+      margin: 16px 0 6px;
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .12em;
+      color: var(--ink-mid);
+    }
+
+    /* ── step tooltip popover ───────────────────────────────────── */
+    #step-tooltip {
+      position: fixed;
+      background: var(--surface);
+      border: 2px solid var(--ink);
       border-radius: 16px;
-      overflow: hidden;
-      transition: border-color .15s;
+      box-shadow: var(--sh-soft);
+      padding: 10px 13px;
+      min-width: 160px;
+      max-width: 240px;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .1s, transform .1s;
     }
-    .step-details[open] { border-color: var(--ink); }
-    .step-details summary {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 16px;
-      cursor: pointer;
-      list-style: none;
-      user-select: none;
-    }
-    .step-details summary::-webkit-details-marker { display: none; }
-    .step-details summary::before {
-      content: '▶';
-      font-size: 9px;
-      color: var(--ink-light);
-      flex-shrink: 0;
-    }
-    .step-details[open] summary::before { content: '▼'; }
-    .step-details .detail-body {
-      padding: 16px;
-      border-top: 1.5px solid var(--border);
-      background: var(--bg);
+    #step-tooltip.visible { opacity: 1; transform: translateY(0); }
+
+    .tip-id  { font-size: 12px; font-weight: 700; font-family: 'Courier New', monospace;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+    .tip-cmd { font-size: 10px; color: var(--ink-mid); font-family: 'Courier New', monospace;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 7px; }
+    .tip-foot { display: flex; align-items: center; gap: 7px;
+                padding-top: 6px; border-top: 1.5px solid var(--border); font-size: 11px; }
+    .tip-stdout {
+      margin: 7px 0 6px;
+      font-size: 10px; font-family: 'Courier New', monospace;
+      color: var(--ink-mid);
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 80px; overflow: hidden;
+      border-left: 2px solid var(--border);
+      padding-left: 7px;
     }
 
     pre {
@@ -543,6 +576,7 @@
     <a href="/">Pipelines</a>
     <a href="/connector">Connectors</a>
     <a href="/script">Scripts</a>
+    <a href="/alert">Alerts</a>
     <form method="post" action="/logout" style="margin-left:auto">
       <button type="submit" style="background:transparent;border:1.5px solid var(--border);color:var(--ink-light);padding:4px 14px;font-size:11px;box-shadow:none;font-weight:600;letter-spacing:.04em">
         Logout
@@ -724,6 +758,150 @@
       document.getElementById('server-loading-dialog').showModal();
     }
   });
+
+  // ── step node tooltip + click detail ─────────────────────────────────────
+  (function () {
+    const tip = document.createElement('div');
+    tip.id = 'step-tooltip';
+    document.body.appendChild(tip);
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function fmtDur(s) {
+      if (!s && s !== 0) return '';
+      if (s < 1)  return Math.round(s * 1000) + 'ms';
+      if (s < 60) return s.toFixed(1) + 's';
+      return Math.floor(s / 60) + 'm ' + Math.round(s % 60) + 's';
+    }
+
+    function statusLabel(sr) {
+      if (!sr) return 'pending';
+      if (sr.skipped)   return 'skipped';
+      if (sr.is_branch) return 'branch';
+      return sr.signal || 'pending';
+    }
+
+    function getStepResults(gc) {
+      if (!gc) return {};
+      if (!gc._stepResultsCache) gc._stepResultsCache = JSON.parse(gc.dataset.stepResults || '{}');
+      return gc._stepResultsCache;
+    }
+
+    const SIGNAL_BADGE_CLS = {
+      ok: 'badge-green', update: 'badge-blue', installed: 'badge-purple',
+      warning: 'badge-orange', fail: 'badge-red', crashed: 'badge-crashed',
+    };
+
+    // ── tooltip ──
+    let lastTipNode = null;
+    document.addEventListener('mousemove', function (e) {
+      const node = e.target.closest('.step-node');
+      if (!node) { tip.classList.remove('visible'); lastTipNode = null; return; }
+
+      // reposition every move, flip if near viewport edge
+      const TIP_W = 240, TIP_H = 160;
+      const left = (e.clientX + TIP_W + 20 < window.innerWidth)
+        ? e.clientX + 14
+        : e.clientX - TIP_W - 10;
+      const top  = (e.clientY + TIP_H + 20 < window.innerHeight)
+        ? e.clientY + 14
+        : e.clientY - TIP_H - 10;
+      tip.style.left = left + 'px';
+      tip.style.top  = top  + 'px';
+
+      // only rebuild HTML when node changes
+      if (node === lastTipNode) { tip.classList.add('visible'); return; }
+      lastTipNode = node;
+
+      const gc  = node.closest('.graph-container');
+      const all = getStepResults(gc);
+      const sr  = all[node.dataset.stepId];
+      const lbl = statusLabel(sr);
+      const dur = sr && !sr.skipped && sr.duration ? fmtDur(sr.duration) : null;
+      const badgeCls = sr && !sr.skipped ? (SIGNAL_BADGE_CLS[sr.signal] || 'badge-gray') : 'badge-gray';
+
+      const stdout = sr && sr.stdout ? sr.stdout.slice(0, 300) + (sr.stdout.length > 300 ? '…' : '') : null;
+      tip.innerHTML = `
+        <div class="tip-id">${esc(node.dataset.stepId)}</div>
+        <div class="tip-cmd">${esc(sr ? sr.exec || '—' : '—')}</div>
+        ${stdout ? `<div class="tip-stdout">${esc(stdout)}</div>` : ''}
+        <div class="tip-foot">
+          <span class="badge ${badgeCls}">${esc(lbl)}</span>
+          ${dur ? `<span style="color:var(--ink-light)">${esc(dur)}</span>` : ''}
+        </div>`;
+      tip.className = 'visible';
+    });
+
+    // ── click → detail panel ──
+    document.addEventListener('click', function (e) {
+      // close button inside panel
+      if (e.target.closest('[data-close-panel]')) {
+        const panel = e.target.closest('.step-detail-panel');
+        if (panel) {
+          const outer = panel.previousElementSibling; // .graph-outer
+          const gc = outer && outer.querySelector('.graph-container');
+          if (gc) gc.querySelectorAll('.step-node').forEach(n => n.classList.remove('step-node-selected'));
+          panel.hidden = true;
+          panel.dataset.activeStep = '';
+        }
+        return;
+      }
+
+      const node = e.target.closest('.step-node');
+      if (!node) return;
+      const gc    = node.closest('.graph-container');
+      const outer = gc && gc.closest('.graph-outer');
+      const panel = outer && outer.nextElementSibling;
+      if (!panel || !panel.classList.contains('step-detail-panel')) return;
+
+      const stepId = node.dataset.stepId;
+
+      // toggle off if same step clicked again
+      if (!panel.hidden && panel.dataset.activeStep === stepId) {
+        panel.hidden = true;
+        panel.dataset.activeStep = '';
+        node.classList.remove('step-node-selected');
+        return;
+      }
+
+      const all = getStepResults(gc);
+      const sr  = all[stepId];
+      gc.querySelectorAll('.step-node').forEach(n => n.classList.remove('step-node-selected'));
+      node.classList.add('step-node-selected');
+
+      if (!sr) {
+        panel.innerHTML = '<p style="color:var(--ink-light);font-size:12px">No result yet for <code>' + esc(stepId) + '</code>.</p>';
+        panel.dataset.activeStep = stepId;
+        panel.hidden = false;
+        return;
+      }
+
+      const lbl = statusLabel(sr);
+      const dur = sr.skipped || !sr.duration ? '—' : fmtDur(sr.duration);
+
+      let html = `
+        <button class="detail-close" data-close-panel>✕</button>
+        <div class="info-grid">
+          <div class="info-item"><label>Step</label><span><code>${esc(stepId)}</code></span></div>
+          <div class="info-item"><label>Status</label><span><code>${esc(lbl)}</code></span></div>
+          <div class="info-item"><label>Command</label><span><code>${esc(sr.exec || '—')}</code></span></div>
+          <div class="info-item"><label>Check</label><span><code>${esc(sr.check_method || '—')}</code></span></div>
+          <div class="info-item"><label>Duration</label><span>${esc(dur)}</span></div>
+          ${sr.branch > 0 ? `<div class="info-item"><label>Branch</label><span><code>${sr.branch}</code></span></div>` : ''}
+        </div>`;
+
+      if (sr.stdout) html += `<h3>stdout</h3><pre>${esc(sr.stdout)}</pre>`;
+      if (sr.stderr) html += `<h3>stderr</h3><pre>${esc(sr.stderr)}</pre>`;
+      if (!sr.stdout && !sr.stderr && !sr.skipped)
+        html += `<p style="color:var(--ink-light);font-size:11px">(no output)</p>`;
+
+      panel.innerHTML = html;
+      panel.dataset.activeStep = stepId;
+      panel.hidden = false;
+    });
+  })();
   </script>
 </body>
 </html>

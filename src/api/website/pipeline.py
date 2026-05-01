@@ -77,6 +77,7 @@ def edit_pipeline_page(request: Request, name: str):
         "branches":       [{"name": b.name, "signal": b.signal.value} for b in step.branches],
         "requires":       [{"step": r.step, "branch": r.branch} for r in step.requires],
     }) for i, step in enumerate(pipeline.pipeline)]
+    pipeline_alerts = [a for a in _storage.load_alerts() if a.pipeline == name or a.pipeline is None]
     return templates.TemplateResponse(request=request, name="pipeline_form.html", context={
         **form_base_ctx(),
         "request": request,
@@ -89,6 +90,7 @@ def edit_pipeline_page(request: Request, name: str):
         "steps": steps,
         "all_step_ids": [s.id for s in pipeline.pipeline],
         "available_connectors": available_connectors(),
+        "pipeline_alerts": pipeline_alerts,
         "errors": None,
     })
 
@@ -101,6 +103,7 @@ async def update_pipeline_route(request: Request, name: str):
     except (ValidationError, ValueError) as exc:
         errors = _validation_errors(exc)
         steps = steps_from_form(form)
+        pipeline_alerts = [a for a in _storage.load_alerts() if a.pipeline == name or a.pipeline is None]
         return templates.TemplateResponse(request=request, name="pipeline_form.html", status_code=422, context={
             **form_base_ctx(),
             "request": request,
@@ -113,6 +116,7 @@ async def update_pipeline_route(request: Request, name: str):
             "steps": steps,
             "all_step_ids": [s["id"] for _, s in steps if s["id"]],
             "available_connectors": available_connectors(),
+            "pipeline_alerts": pipeline_alerts,
             "errors": errors,
         })
     _storage.update_pipeline(pipeline, group)

@@ -32,6 +32,7 @@ class Job(SQLModel, table=True):
     source: JobSource = Field(default=JobSource.manual)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     crash_reason: str | None = Field(default=None)
+    phase: str | None = Field(default=None)
 
     results: list["LivePipelineResult"] = Relationship(
         back_populates="job",
@@ -104,6 +105,17 @@ class ArchivedStepResult(SQLModel, table=True):
     run: Optional[ArchivedRun] = Relationship(back_populates="steps")
 
 
+class SentAlertRecord(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    alert_name: str
+    pipeline_name: str
+    target_id: str
+    target_name: str = ""
+    signal: str
+    url: str = ""
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 engine = create_engine(f"sqlite:///{config.DB_FILE}")
 
 
@@ -117,6 +129,9 @@ def init_db():
             conn.commit()
         if "crash_reason" not in job_cols:
             conn.execute(text("ALTER TABLE job ADD COLUMN crash_reason VARCHAR"))
+            conn.commit()
+        if "phase" not in job_cols:
+            conn.execute(text("ALTER TABLE job ADD COLUMN phase VARCHAR"))
             conn.commit()
 
         lpr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")]

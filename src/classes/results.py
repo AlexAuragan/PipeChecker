@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.classes.enums import Status
 from src.classes.target import Target
@@ -31,16 +31,10 @@ class PipelineResult:
     pipeline_name: str
     steps: dict[str, "StepResult"]
     duration: float
-    # (step_id, branch_num) pairs that are depended on by another step — their signal is NOT terminal
-    non_leaf_branches: frozenset[tuple[str, int]] = field(default_factory=frozenset)
 
     @property
     def status(self) -> Status:
-        # A step's signal is terminal if the branch it took is not a non-leaf branch
-        terminal_signals = [
-            s.signal for s in self.steps.values()
-            if not s.skipped and (s.step_id, s.branch) not in self.non_leaf_branches
-        ]
-        if not terminal_signals:
+        signals = [s.signal for s in self.steps.values() if not s.skipped]
+        if not signals:
             return Status.ok
-        return max(terminal_signals, key=lambda s: _SEVERITY[s])
+        return max(signals, key=lambda s: _SEVERITY[s])

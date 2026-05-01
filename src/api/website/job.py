@@ -71,6 +71,7 @@ def job_page(request: Request, job_id: UUID):
         for step in pipeline.pipeline
         for req in step.requires
     )
+    step_map = {step.id: step for step in pipeline.pipeline}
 
     target_results = [
         {
@@ -79,7 +80,22 @@ def job_page(request: Request, job_id: UUID):
             "t_status":     result["status"],
             "duration":     result["duration"],
             "step_results": {s["step_id"]: s for s in result["steps"]},
-            "step_results_json": json.dumps({s["step_id"]: {"branch": s["branch"], "skipped": s["skipped"]} for s in result["steps"]}),
+            "step_results_json": json.dumps({
+                s["step_id"]: {
+                    "branch":       s["branch"],
+                    "skipped":      s["skipped"],
+                    "signal":       s["signal"],
+                    "duration":     s["duration"],
+                    "stdout":       s["stdout"] or "",
+                    "stderr":       s["stderr"] or "",
+                    "exec":         step_map[s["step_id"]].exec if s["step_id"] in step_map else "",
+                    "check_method": step_map[s["step_id"]].check_method.value if s["step_id"] in step_map else "",
+                    "is_branch":    (s["step_id"], s["branch"]) in non_leaf_branches
+                                    and not s["skipped"]
+                                    and s["signal"] not in ("fail", "crashed"),
+                }
+                for s in result["steps"]
+            }),
         }
         for result in job["results"]
     ]
@@ -92,6 +108,7 @@ def job_page(request: Request, job_id: UUID):
     is_live = str(job["status"].value) in ("pending", "running")
     crash_reason = job.get("crash_reason")
     is_ssh_error = bool(crash_reason and any(m in crash_reason for m in _SSH_MARKERS))
+    phase = job.get("phase")
 
     return templates.TemplateResponse(
         request=request,
@@ -109,5 +126,6 @@ def job_page(request: Request, job_id: UUID):
             "is_live": is_live,
             "crash_reason": crash_reason,
             "is_ssh_error": is_ssh_error,
+            "phase": phase,
         },
     )

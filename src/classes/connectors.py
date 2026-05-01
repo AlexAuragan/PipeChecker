@@ -107,11 +107,15 @@ class Connector(BaseModel, ABC):
             self._targets += self.single_init(config_path=cp, config_url=cu, config_ssh=cs)
 
     @property
+    def is_loaded(self) -> bool:
+        return self._targets is not None
+
+    @property
     def targets(self):
         if self._load_error is not None:
             raise RuntimeError(f"Connector '{self.name}' failed to load targets: {self._load_error}")
         if self._targets is None:
-            raise ValueError("targets was not initialized, please call connector.load_targets() first")
+            self.load_targets()
         return self._targets
 
     def to_str(self):

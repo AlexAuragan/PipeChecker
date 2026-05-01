@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Alerts — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="section">
+  <h1>ALERTS <a href="/alert/new" class="btn btn-sm" style="font-size:11px; vertical-align:middle">+ New</a></h1>
+
+  {% if alerts %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Pipeline</th>
+          <th>Signals</th>
+          <th>Connector</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in alerts %}
+        <tr>
+          <td><strong>{{ alert.name }}</strong></td>
+          <td>
+            {% if alert.pipeline %}
+              <a href="/pipeline/{{ alert.pipeline }}">{{ alert.pipeline }}</a>
+            {% else %}
+              <span style="color:var(--ink-light)">— all —</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for s in alert.on_signals %}
+              <span class="badge {{ signal_badge(s) }}" style="margin-right:4px">{{ s.value }}</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% if alert.connector %}
+              <code>{{ alert.connector }}</code>
+            {% else %}
+              <span style="color:var(--ink-light)">history only</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="/alert/{{ alert.name }}/edit" class="btn btn-sm">Edit</a>
+            <button class="btn btn-sm btn-danger" style="margin-left:6px"
+              onclick="openDeleteDialog('{{ alert.name }}')">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No alerts configured yet. <a href="/alert/new">Add one</a>.</div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <div style="display:flex; align-items:baseline; gap:16px; margin-bottom:16px">
+    <h2 style="margin-bottom:0">HISTORY</h2>
+    {% if history %}
+    <button class="btn btn-sm btn-danger" onclick="document.getElementById('clear-history-dialog').showModal()">
+      Clear all
+    </button>
+    {% endif %}
+  </div>
+
+  {% if history %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Alert</th>
+          <th>Pipeline</th>
+          <th>Target</th>
+          <th>Signal</th>
+          <th>Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td>{{ h.alert_name }}</td>
+          <td><a href="/pipeline/{{ h.pipeline_name }}">{{ h.pipeline_name }}</a></td>
+          <td><code>{{ h.target_name or h.target_id }}</code></td>
+          <td><span class="badge {{ status_badge(h.signal) }}">{{ h.signal }}</span></td>
+          <td style="color:var(--ink-light); font-size:12px">{{ fmt_datetime(h.triggered_at) }}</td>
+          <td>
+            {% if h.url %}<a href="{{ h.url }}" class="btn btn-sm">→</a>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No alerts have been fired yet.</div>
+  {% endif %}
+</div>
+
+{# ── delete alert dialog ──────────────────────────────────────────────── #}
+<dialog id="delete-alert-dialog" class="confirm-dialog">
+  <p style="font-weight:700; font-size:15px; margin-bottom:8px">
+    Delete alert <code id="delete-alert-name"></code>?
+  </p>
+  <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">This cannot be undone.</p>
+  <div style="display:flex; gap:12px; justify-content:flex-end">
+    <button type="button" class="btn-sm"
+      onclick="document.getElementById('delete-alert-dialog').close()">Cancel</button>
+    <form id="delete-alert-form" method="post" style="display:inline">
+      <button type="submit" class="btn-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</dialog>
+
+{# ── clear history dialog ─────────────────────────────────────────────── #}
+<dialog id="clear-history-dialog" class="confirm-dialog">
+  <p style="font-weight:700; font-size:15px; margin-bottom:8px">Clear all history?</p>
+  <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">
+    All {{ history | length }} records will be permanently deleted.
+  </p>
+  <div style="display:flex; gap:12px; justify-content:flex-end">
+    <button type="button" class="btn-sm"
+      onclick="document.getElementById('clear-history-dialog').close()">Cancel</button>
+    <form method="post" action="/alert/history/clear" style="display:inline">
+      <button type="submit" class="btn-danger btn-sm">Clear</button>
+    </form>
+  </div>
+</dialog>
+
+<script>
+function openDeleteDialog(name) {
+  document.getElementById('delete-alert-name').textContent = name;
+  document.getElementById('delete-alert-form').action = '/alert/' + encodeURIComponent(name) + '/delete';
+  document.getElementById('delete-alert-dialog').showModal();
+  document.getElementById('delete-alert-dialog').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.close();
+  }, { once: true });
+}
+document.getElementById('clear-history-dialog')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.close();
+});
+</script>
+{% endblock %}

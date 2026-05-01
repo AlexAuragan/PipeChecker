@@ -1,12 +1,12 @@
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete as sql_delete
 
 from src.classes.results import PipelineResult
 from src.core.database import (
     ArchivedRun, ArchivedStepResult, Job, JobSource, JobStatus,
-    LivePipelineResult, LiveStepResult, engine,
+    LivePipelineResult, LiveStepResult, SentAlertRecord, engine,
 )
 
 MAX_OUTPUT_LEN = 4096
@@ -32,8 +32,19 @@ def set_job_status(job_id: UUID, status: JobStatus, crash_reason: str | None = N
         if job is None:
             raise KeyError(f"Job {job_id} not found.")
         job.status = status
+        job.phase = None
         if crash_reason is not None:
             job.crash_reason = crash_reason
+        session.add(job)
+        session.commit()
+
+
+def set_job_phase(job_id: UUID, phase: str | None) -> None:
+    with Session(engine) as session:
+        job = session.get(Job, job_id)
+        if job is None:
+            return
+        job.phase = phase
         session.add(job)
         session.commit()
 
@@ -77,6 +88,7 @@ def get_job(job_id: UUID) -> dict | None:
             "source": job.source,
             "created_at": job.created_at,
             "crash_reason": job.crash_reason,
+            "phase": job.phase,
             "results": [
                 {
                     "target_id": pr.target_id,
@@ -141,7 +153,7 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
 
 def archive_old_jobs() -> None:
     """Move terminal jobs older than 24h into the archive tables."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     with Session(engine) as session:
         old_jobs = session.exec(
             select(Job).where(
@@ -235,6 +247,46 @@ def delete_cancelled_jobs() -> None:
             session.delete(job)
         session.commit()
     _cancelled.difference_update(ids)
+
+
+def record_sent_alert(alert: "SentAlert") -> None:  # type: ignore[name-defined]
+    with Session(engine) as session:
+        session.add(SentAlertRecord(
+            alert_name=alert.alert_name,
+            pipeline_name=alert.pipeline_name,
+            target_id=str(alert.target_id),
+            target_name=alert.target_name or "",
+            signal=alert.signal.value,
+            url=alert.url,
+            triggered_at=alert.triggered_at,
+        ))
+        session.commit()
+
+
+def list_alert_history(limit: int = 200) -> list[dict]:
+    with Session(engine) as session:
+        records = session.exec(
+            select(SentAlertRecord).order_by(SentAlertRecord.triggered_at.desc()).limit(limit)
+        ).all()
+        return [
+            {
+                "id": r.id,
+                "alert_name": r.alert_name,
+                "pipeline_name": r.pipeline_name,
+                "target_id": r.target_id,
+                "target_name": r.target_name,
+                "signal": r.signal,
+                "url": r.url,
+                "triggered_at": r.triggered_at,
+            }
+            for r in records
+        ]
+
+
+def clear_alert_history() -> None:
+    with Session(engine) as session:
+        session.exec(sql_delete(SentAlertRecord))
+        session.commit()
 
 
 _SIGNAL_SEVERITY: dict[str, int] = {"ok": 0, "update": 1, "warning": 2, "fail": 3, "crashed": 4}

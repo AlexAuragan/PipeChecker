@@ -38,6 +38,7 @@ class JobResponse(BaseModel):
     status: str
     source: str
     created_at: datetime
+    phase: str | None = None
     results: list[PipelineResultResponse]
 
 

@@ -22,6 +22,7 @@
     <h1>
       JOB
       <span class="badge {{ status_badge(job.status) }}" style="font-size:13px; padding:3px 10px">{{ job.status.value }}</span>
+      {% if phase %}<span style="font-size:12px; color:var(--ink-mid); font-weight:400; margin-left:6px">{{ phase }}</span>{% endif %}
     </h1>
 
     <div class="info-grid">
@@ -111,7 +112,8 @@
   <div class="section">
     <div class="empty">
       {% if job.status.value == "pending" %}Waiting to start…
-      {% elif job.status.value == "running" %}Running — results will appear as targets complete.
+      {% elif job.status.value == "running" %}
+        {% if phase %}{{ phase }}{% else %}Running — results will appear as targets complete.{% endif %}
       {% else %}No results recorded.{% endif %}
     </div>
   </div>
@@ -135,9 +137,11 @@
 
     <div class="targets-list">
       {% for tr in target_results %}
-      {% set target_name = tr.target_name %}
-      {% set t_status    = tr.t_status %}
-      {% set step_results = tr.step_results %}
+      {% set target_name      = tr.target_name %}
+      {% set t_status         = tr.t_status %}
+      {% set step_results     = tr.step_results %}
+      {% set step_results_json = tr.step_results_json %}
+      {% set duration         = tr.duration %}
       <div class="target-section ts-{{ signal_group(t_status) }}">
         {% include "_target_body.html" %}
       </div>
@@ -147,9 +151,11 @@
 
   {% else %}
   {% for tr in target_results %}
-  {% set target_name = tr.target_name %}
-  {% set t_status    = tr.t_status %}
-  {% set step_results = tr.step_results %}
+  {% set target_name       = tr.target_name %}
+  {% set t_status          = tr.t_status %}
+  {% set step_results      = tr.step_results %}
+  {% set step_results_json = tr.step_results_json %}
+  {% set duration          = tr.duration %}
   <div class="target-section">
     {% include "_target_body.html" %}
   </div>

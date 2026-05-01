@@ -5,6 +5,8 @@ import yaml
 
 from src import config
 from src.classes import pipeline
+from src.classes.alert import AlertConfig
+from src.classes.alert_connector import AlertConnector
 from src.classes.connectors import Manager, Connector
 
 
@@ -100,6 +102,82 @@ def load_manager() -> Manager:
         connector = Connector.from_str(yaml.dump({name: conf}))
         manager.add(connector)
     return manager
+
+
+def load_alerts() -> list[AlertConfig]:
+    if not config.ALERT_FILE.exists():
+        return []
+    return [AlertConfig.model_validate(a) for a in yaml.safe_load(config.ALERT_FILE.read_text()) or []]
+
+
+def save_alert(alert: AlertConfig) -> None:
+    alerts = load_alerts()
+    if any(a.name == alert.name for a in alerts):
+        raise ValueError(f"Alert '{alert.name}' already exists.")
+    _write_alerts([*alerts, alert])
+
+
+def update_alert(alert: AlertConfig) -> None:
+    alerts = load_alerts()
+    for i, a in enumerate(alerts):
+        if a.name == alert.name:
+            alerts[i] = alert
+            _write_alerts(alerts)
+            return
+    raise KeyError(f"Alert '{alert.name}' not found.")
+
+
+def delete_alert(name: str) -> None:
+    alerts = load_alerts()
+    updated = [a for a in alerts if a.name != name]
+    if len(updated) == len(alerts):
+        raise KeyError(f"Alert '{name}' not found.")
+    _write_alerts(updated)
+
+
+def _write_alerts(alerts: list[AlertConfig]) -> None:
+    config.ALERT_FILE.write_text(
+        yaml.dump([a.model_dump(mode="json") for a in alerts], default_flow_style=False, allow_unicode=True)
+    )
+
+
+def load_alert_connectors() -> list[AlertConnector]:
+    if not config.ALERT_CONNECTOR_FILE.exists():
+        return []
+    data = yaml.safe_load(config.ALERT_CONNECTOR_FILE.read_text()) or {}
+    return [AlertConnector.from_str(yaml.dump({name: conf})) for name, conf in data.items()]
+
+
+def save_alert_connector(connector: AlertConnector) -> None:
+    existing = {c.name: c for c in load_alert_connectors()}
+    if connector.name in existing:
+        raise ValueError(f"Alert connector '{connector.name}' already exists.")
+    existing[connector.name] = connector
+    _write_alert_connectors(list(existing.values()))
+
+
+def update_alert_connector(connector: AlertConnector) -> None:
+    existing = {c.name: c for c in load_alert_connectors()}
+    if connector.name not in existing:
+        raise KeyError(f"Alert connector '{connector.name}' not found.")
+    existing[connector.name] = connector
+    _write_alert_connectors(list(existing.values()))
+
+
+def delete_alert_connector(name: str) -> None:
+    existing = {c.name: c for c in load_alert_connectors()}
+    if name not in existing:
+        raise KeyError(f"Alert connector '{name}' not found.")
+    del existing[name]
+    _write_alert_connectors(list(existing.values()))
+
+
+def _write_alert_connectors(connectors: list[AlertConnector]) -> None:
+    data = {}
+    for c in connectors:
+        data |= yaml.safe_load(c.to_str())
+    with open(config.ALERT_CONNECTOR_FILE, "w") as f:
+        yaml.dump(data, f, default_flow_style=False)
 
 
 def save_manager(manager: Manager) -> None:

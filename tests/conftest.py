@@ -19,11 +19,17 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(scope="session")
 def _test_credentials():
-    """Generate a fresh API key + hash once per test session."""
+    """Generate a fresh API key hash and web password hash once per test session."""
     key = "pc_" + secrets.token_urlsafe(32)
     salt = os.urandom(16)
     dk = hashlib.pbkdf2_hmac("sha256", key.encode(), salt, 100_000)
-    return key, f"{salt.hex()}:{dk.hex()}"
+    api_key_hash = f"{salt.hex()}:{dk.hex()}"
+
+    web_salt = os.urandom(16)
+    web_dk = hashlib.pbkdf2_hmac("sha256", b"testpassword", web_salt, 100_000)
+    web_password_hash = f"{web_salt.hex()}:{web_dk.hex()}"
+
+    return key, api_key_hash, web_password_hash
 
 
 @pytest.fixture(scope="session")
@@ -66,7 +72,10 @@ def isolated_config(tmp_path, monkeypatch, _test_credentials):
     monkeypatch.setattr(cfg, "SAVE_FOLDER", save_dir)
     monkeypatch.setattr(cfg, "CONNECTOR_FILE", save_dir / "connectors.yaml")
     monkeypatch.setattr(cfg, "PIPELINE_FOLDER", save_dir / "pipelines")
+    monkeypatch.setattr(cfg, "ALERT_FILE", save_dir / "alerts.yaml")
+    monkeypatch.setattr(cfg, "ALERT_CONNECTOR_FILE", save_dir / "alert_connectors.yaml")
 
-    # Enable API key auth with the session-generated test credentials
-    _, key_hash = _test_credentials
+    # Enable auth with the session-generated test credentials
+    _, key_hash, web_hash = _test_credentials
     monkeypatch.setenv("PIPECHECKER_API_KEY_HASH", key_hash)
+    monkeypatch.setenv("PIPECHECKER_WEB_PASSWORD_HASH", web_hash)

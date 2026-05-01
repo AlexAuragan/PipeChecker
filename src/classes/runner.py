@@ -110,12 +110,6 @@ class RemoteLinuxRunner(Runner, ABC):
     def run_pipeline(self) -> r.PipelineResult:
         import traceback
         steps_by_id = {step.id: step for step in self.pipeline.pipeline}
-        non_leaf_branches = frozenset(
-            (req.step, req.branch)
-            for step in self.pipeline.pipeline
-            for req in step.requires
-        )
-
         sorter = TopologicalSorter(self.execution_graph)
         sorter.prepare()
 
@@ -148,7 +142,6 @@ class RemoteLinuxRunner(Runner, ABC):
             pipeline_name=self.pipeline.name,
             steps=pipes_results,
             duration=end - start,
-            non_leaf_branches=non_leaf_branches,
         )
 
 

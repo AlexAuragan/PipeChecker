@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit {{ form_data.name }}{% else %}New Alert{% endif %} — PipeChecker{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .form-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    box-shadow: var(--sh-accent);
+    padding: 28px 32px;
+    margin-bottom: 28px;
+  }
+  .field { margin-bottom: 20px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--ink-mid);
+    margin-bottom: 6px;
+  }
+  .field input[type="text"],
+  .field select {
+    width: 100%;
+    max-width: 420px;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--ink);
+    transition: border-color .15s;
+  }
+  .field input[type="text"]:focus,
+  .field select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .field input[readonly] {
+    background: var(--accent-bg);
+    color: var(--ink-mid);
+    cursor: default;
+  }
+  .hint {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-light);
+    margin-top: 4px;
+  }
+  .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    padding: 6px 12px 6px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 99px;
+    background: var(--surface);
+    transition: border-color .12s, background .12s;
+  }
+  .checkbox-item:has(input:checked) {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .checkbox-item input[type="checkbox"] { accent-color: var(--accent); }
+  .actions { display: flex; gap: 12px; margin-top: 8px; }
+  .btn-cancel {
+    background: transparent;
+    color: var(--ink-mid);
+    border-color: var(--border);
+    box-shadow: 2px 2px 0 var(--border);
+  }
+  .btn-cancel:hover { box-shadow: 3px 3px 0 var(--border); }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>{% if editing %}EDIT ALERT{% else %}NEW ALERT{% endif %}</h1>
+
+{% if errors %}
+<div class="error-box" style="margin-bottom:24px">
+  {% for e in errors %}<div>• {{ e }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form method="post"
+  action="{% if editing %}/alert/{{ form_data.name }}/edit{% else %}/alert/new{% endif %}">
+
+  <div class="form-card">
+    <h2>IDENTITY</h2>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" name="name" value="{{ form_data.name }}"
+        {% if editing %}readonly{% endif %} required placeholder="e.g. prod-failures">
+      {% if editing %}
+      <span class="hint">Alert name cannot be changed after creation.</span>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label>Pipeline <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <select name="pipeline">
+        <option value="" {% if not form_data.pipeline %}selected{% endif %}>— All pipelines —</option>
+        {% for p in available_pipelines %}
+        <option value="{{ p }}" {% if form_data.pipeline == p %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">Leave blank to fire for every pipeline.</span>
+    </div>
+
+    <div class="field">
+      <label>Connector <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <select name="connector">
+        <option value="" {% if not form_data.connector %}selected{% endif %}>— History only —</option>
+        {% for c in available_alert_connectors %}
+        <option value="{{ c.name }}" {% if form_data.connector == c.name %}selected{% endif %}>
+          {{ c.name }} ({{ c.type.value }})
+        </option>
+        {% endfor %}
+      </select>
+      <span class="hint">Without a connector, alerts are still recorded in history.</span>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <h2>TRIGGER SIGNALS</h2>
+    <p style="font-size:12px; color:var(--ink-mid); margin-bottom:14px">
+      Fire when a pipeline result matches one of these signals.
+    </p>
+    <div class="checkbox-group">
+      {% for s in all_signals %}
+      <label class="checkbox-item">
+        <input type="checkbox" name="on_signals" value="{{ s.value }}"
+          {% if s in form_data.on_signals %}checked{% endif %}>
+        <span class="badge {{ signal_badge(s) }}">{{ s.value }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="submit">{% if editing %}Save changes{% else %}Create alert{% endif %}</button>
+    <a href="/alert" class="btn btn-cancel">Cancel</a>
+  </div>
+
+</form>
+{% endblock %}

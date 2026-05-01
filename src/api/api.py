@@ -3,9 +3,11 @@ from fastapi.responses import RedirectResponse
 
 from src.api import utils
 from src.api.web_auth import RequiresLoginException
+from src.api.routers.alerts import router as alerts_router
 from src.api.routers.connectors import router as connectors_router
 from src.api.routers.jobs import router as jobs_router
 from src.api.routers.pipelines import router as pipelines_router
+from src.api.website.alert import router as web_alert_router
 from src.api.website.web import router as web_base_router
 from src.api.website.script import router as web_script_router
 from src.api.website.pipeline import router as web_pipeline_router
@@ -24,12 +26,14 @@ async def requires_login_handler(request: Request, exc: RequiresLoginException):
     return RedirectResponse(url=f"/login?next={exc.next_url}", status_code=303)
 
 # API
+app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(connectors_router, prefix="/api/v1")
 app.include_router(pipelines_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")
 
 # Website
 app.include_router(web_login_router)
+app.include_router(web_alert_router, prefix="/alert")
 app.include_router(web_script_router, prefix="/script")
 app.include_router(web_pipeline_router, prefix="/pipeline")
 app.include_router(web_connector_router, prefix="/connector")
