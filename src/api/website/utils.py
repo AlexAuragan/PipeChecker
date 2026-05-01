@@ -67,7 +67,7 @@ def get_step_branches(step) -> list[dict]:
             {"index": 1, "name": _name(1, "fail"), "signal": _signal(1, "fail")},
         ]
 
-    branches = [{"index": i, "name": _name(i, f"branch {i}"), "signal": _signal(i, "ok")} for i in range(len(patterns))]
+    branches = [{"index": i, "name": _name(i, str(patterns[i])), "signal": _signal(i, "ok")} for i in range(len(patterns))]
     branches.append({"index": len(patterns), "name": _name(len(patterns), "no match"), "signal": _signal(len(patterns), "fail")})
     return branches
 

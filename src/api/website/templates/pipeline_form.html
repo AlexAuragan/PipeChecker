@@ -575,7 +575,9 @@
     const branches = [];
     const patternRows = list.querySelectorAll('.pattern-row');
     patternRows.forEach((pr, i) => {
-      const name = pr.querySelector('[data-role="branch-name"]')?.value.trim() || `branch ${i}`;
+      const nameInp = pr.querySelector('[data-role="branch-name"]');
+      const patInp = pr.querySelector('[data-role="pattern-value"]');
+      const name = nameInp?.value.trim() || patInp?.value.trim() || `branch ${i}`;
       const sig = pr.querySelector(`[name="step_branch_signals_${idx}"]`)?.dataset?.signal || 'ok';
       if (sig !== 'fail') branches.push({index:i, name});
     });
@@ -590,6 +592,16 @@
 
   function onBranchDataChange(idx) {
     updateRequiresGroups();
+  }
+
+  function onPatternValueChange(patternInput, idx) {
+    const row = patternInput.closest('.pattern-row');
+    if (!row) return;
+    const nameInput = row.querySelector('[data-role="branch-name"]');
+    if (!nameInput || nameInput.value) return;
+    const list = document.getElementById('patterns-list-' + idx);
+    const rowIndex = [...list.querySelectorAll('.pattern-row')].indexOf(row);
+    nameInput.placeholder = patternInput.value.trim() || `branch ${rowIndex}`;
   }
 
   // ── pattern branch rows ────────────────────────────────────────────────────
@@ -614,7 +626,8 @@
       `<option value="fail">fail</option>` +
       `</select>` +
       `<input type="text" name="step_check_patterns_${idx}" data-role="pattern-value"` +
-      ` value="" placeholder="pattern or threshold" style="flex:1">` +
+      ` value="" placeholder="pattern or threshold" style="flex:1"` +
+      ` oninput="onPatternValueChange(this,${idx})">` +
       `<button type="button" class="btn-sm btn-remove" onclick="removePatternRow(this,${idx})">✕</button>`;
     list.insertBefore(row, noMatch);
     renumberBranchBadges(idx);
@@ -642,8 +655,9 @@
     rows.forEach((row, i) => {
       const b = row.querySelector('[data-bbadge]');
       if (b) b.textContent = i;
-      const inp = row.querySelector('[data-role="branch-name"]');
-      if (inp && !inp.value) inp.placeholder = `branch ${i}`;
+      const nameInp = row.querySelector('[data-role="branch-name"]');
+      const patInp = row.querySelector('[data-role="pattern-value"]');
+      if (nameInp && !nameInp.value) nameInp.placeholder = patInp?.value.trim() || `branch ${i}`;
     });
     const noMatchBadge = list.querySelector('.no-match-row [data-bbadge]');
     if (noMatchBadge) noMatchBadge.textContent = rows.length;
