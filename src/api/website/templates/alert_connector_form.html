@@ -184,7 +184,7 @@
 </form>
 
 <script>
-const CURRENT_TYPE = {{ form_data.type | tojson }};
+const CURRENT_TYPE = {{ form_data.type.value | tojson }};
 
 function onTypeChange() {
   const t = document.getElementById('ac-type')
