@@ -202,7 +202,8 @@ class TestCancelJob:
 
     def test_cancel_sets_status_to_cancelled(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.pending)
-        client.post(f"{PREFIX}/{job_id}/cancel")
+        response = client.post(f"{PREFIX}/{job_id}/cancel")
+        response = response.raise_for_status()
         with Session(db_engine) as session:
             job = session.get(Job, job_id)
             assert job is not None

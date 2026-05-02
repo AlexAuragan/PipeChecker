@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}{% if editing %}Edit {{ form_data.name }}{% else %}New Alert Connector{% endif %} — PipeChecker{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .form-card {
+    background: var(--surface);
+    border: 2px solid var(--ink);
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    box-shadow: var(--sh-accent);
+    padding: 28px 32px;
+    margin-bottom: 28px;
+  }
+  .field { margin-bottom: 20px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--ink-mid);
+    margin-bottom: 6px;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field select,
+  .field textarea {
+    width: 100%;
+    max-width: 480px;
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--ink);
+    transition: border-color .15s;
+    box-shadow: none;
+  }
+  .field textarea {
+    min-height: 72px;
+    resize: vertical;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus { outline: none; border-color: var(--accent); }
+  .field input[readonly] { background: var(--accent-bg); color: var(--ink-mid); cursor: default; }
+  .hint { display: block; font-size: 11px; color: var(--ink-light); margin-top: 4px; }
+  .header-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; max-width: 480px; }
+  .header-row input[type="text"] { max-width: none; }
+  .header-row input:first-child { flex: 0 0 180px; }
+  .header-row input:nth-child(2) { flex: 1; }
+  .actions { display: flex; gap: 12px; margin-top: 8px; }
+  .btn-cancel {
+    background: transparent;
+    color: var(--ink-mid);
+    border-color: var(--border);
+    box-shadow: 2px 2px 0 var(--border);
+  }
+  .btn-cancel:hover { box-shadow: 3px 3px 0 var(--border); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/alert-connector">Alert Connectors</a>
+  <span>›</span>
+  {% if editing %}{{ form_data.name }} <span>›</span> Edit{% else %}New Alert Connector{% endif %}
+</div>
+
+<h1>{% if editing %}EDIT ALERT CONNECTOR{% else %}NEW ALERT CONNECTOR{% endif %}</h1>
+
+{% if errors %}
+<div class="error-box" style="margin-bottom:24px">
+  {% for e in errors %}<div>• {{ e }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form method="post"
+  action="{% if editing %}/alert-connector/{{ form_data.name }}/edit{% else %}/alert-connector/new{% endif %}">
+
+  {# ── identity ─────────────────────────────────────────────────────────── #}
+  <div class="form-card">
+    <h2>IDENTITY</h2>
+
+    <div class="field">
+      <label>Name</label>
+      <input type="text" name="name" value="{{ form_data.name }}"
+        {% if editing %}readonly{% endif %} required placeholder="e.g. my-discord">
+      {% if editing %}<span class="hint">Connector name cannot be changed.</span>{% endif %}
+    </div>
+
+    <div class="field">
+      <label>Type</label>
+      {% if editing %}
+      <input type="hidden" name="type" value="{{ form_data.type }}">
+      <input type="text" value="{{ form_data.type }}" readonly>
+      {% else %}
+      <select name="type" id="ac-type" onchange="onTypeChange()">
+        {% for t in all_types %}
+        <option value="{{ t.value }}" {% if form_data.type == t.value %}selected{% endif %}>{{ t.value }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── RSS settings ─────────────────────────────────────────────────────── #}
+  <div id="section-rss" class="form-card">
+    <h2>RSS SETTINGS</h2>
+
+    <div class="field">
+      <label>Feed path <span style="color:var(--r)">*</span></label>
+      <input type="text" name="feed_path" value="{{ form_data.feed_path }}"
+        placeholder="/var/www/html/alerts.xml">
+      <span class="hint">Absolute path where the RSS 2.0 file will be written. Parent directories are created automatically.</span>
+    </div>
+
+    <div class="field">
+      <label>Title template <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <input type="text" name="title_template" value="{{ form_data.title_template }}"
+        placeholder="[$signal] $pipeline_name — $target_name">
+      <span class="hint">Variables: $alert_name, $pipeline_name, $target_id, $target_name, $signal, $url, $triggered_at</span>
+    </div>
+
+    <div class="field">
+      <label>Description template <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <textarea name="description_template" placeholder="Alert '$alert_name' fired with signal $signal for $target_name on pipeline $pipeline_name.&#10;$url">{{ form_data.description_template }}</textarea>
+      <span class="hint">Same variables as title template.</span>
+    </div>
+
+    <div class="field">
+      <label>Max items</label>
+      <input type="number" name="max_items" value="{{ form_data.max_items }}" min="1" max="9999"
+        style="max-width:120px">
+      <span class="hint">Oldest entries are removed when the limit is exceeded. Default: 50.</span>
+    </div>
+  </div>
+
+  {# ── Webhook / Discord settings ───────────────────────────────────────── #}
+  <div id="section-webhook" class="form-card">
+    <h2>WEBHOOK SETTINGS</h2>
+
+    <div class="field">
+      <label>URL <span style="color:var(--r)">*</span></label>
+      <input type="text" name="url" value="{{ form_data.url }}"
+        placeholder="https://hooks.example.com/…">
+    </div>
+
+    <div class="field">
+      <label>Body template <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <textarea name="body_template"
+        placeholder='{"text": "[$signal] $pipeline_name / $target_name — $url"}'>{{ form_data.body_template }}</textarea>
+      <span class="hint">JSON with $variable placeholders. Available: $alert_name, $pipeline_name, $target_id, $target_name, $signal, $url, $triggered_at</span>
+    </div>
+
+    <div class="field">
+      <label>Custom headers <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
+      <div id="header-list">
+        {% for key, val in form_data.headers.items() %}
+        <div class="header-row">
+          <input type="text" name="header_key" value="{{ key }}" placeholder="Header-Name">
+          <input type="text" name="header_value" value="{{ val }}" placeholder="value">
+          <button type="button" class="btn-sm btn-remove"
+            onclick="this.closest('.header-row').remove(); checkHeaderEmpty()">✕</button>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="header-empty" class="hint"
+        style="margin-bottom:8px{% if form_data.headers %};display:none{% endif %}">
+        No custom headers.
+      </div>
+      <button type="button" class="btn-sm" onclick="addHeader()" style="margin-top:4px">+ Add Header</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="submit">{% if editing %}Save changes{% else %}Create connector{% endif %}</button>
+    <a href="/alert-connector" class="btn btn-cancel">Cancel</a>
+  </div>
+
+</form>
+
+<script>
+const CURRENT_TYPE = {{ form_data.type | tojson }};
+
+function onTypeChange() {
+  const t = document.getElementById('ac-type')
+    ? document.getElementById('ac-type').value
+    : CURRENT_TYPE;
+  document.getElementById('section-rss').style.display     = (t === 'rss') ? '' : 'none';
+  document.getElementById('section-webhook').style.display = (t !== 'rss') ? '' : 'none';
+}
+
+function addHeader() {
+  const list = document.getElementById('header-list');
+  document.getElementById('header-empty').style.display = 'none';
+  const row = document.createElement('div');
+  row.className = 'header-row';
+  row.innerHTML = `
+    <input type="text" name="header_key" placeholder="Header-Name">
+    <input type="text" name="header_value" placeholder="value">
+    <button type="button" class="btn-sm btn-remove"
+      onclick="this.closest('.header-row').remove(); checkHeaderEmpty()">✕</button>`;
+  list.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function checkHeaderEmpty() {
+  const empty = document.getElementById('header-empty');
+  if (document.getElementById('header-list').children.length === 0) empty.style.display = '';
+}
+
+document.addEventListener('DOMContentLoaded', onTypeChange);
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Alert Connectors — PipeChecker{% endblock %}
+
+{% block content %}
+<div class="section">
+  <h1>ALERT CONNECTORS <a href="/alert-connector/new" class="btn btn-sm" style="font-size:11px; vertical-align:middle">+ New</a></h1>
+
+  {% if connectors %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Details</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in connectors %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td><span class="badge badge-blue">{{ c.type.value }}</span></td>
+          <td>
+            {% if c.type.value == 'rss' %}
+              <code>{{ c.feed_path }}</code>
+            {% else %}
+              <code style="word-break:break-all">{{ c.url }}</code>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="/alert-connector/{{ c.name }}/edit" class="btn btn-sm">Edit</a>
+            <button class="btn btn-sm btn-danger" style="margin-left:6px"
+              onclick="openDeleteDialog('{{ c.name }}')">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No alert connectors yet. <a href="/alert-connector/new">Add one</a>.</div>
+  {% endif %}
+</div>
+
+{# ── delete dialog ────────────────────────────────────────────────────────── #}
+<dialog id="delete-ac-dialog" class="confirm-dialog">
+  <p style="font-weight:700; font-size:15px; margin-bottom:8px">
+    Delete connector <code id="delete-ac-name"></code>?
+  </p>
+  <p style="color:var(--ink-mid); font-size:13px; margin-bottom:24px">
+    Any alerts using this connector will stop sending notifications.
+  </p>
+  <div style="display:flex; gap:12px; justify-content:flex-end">
+    <button type="button" class="btn-sm"
+      onclick="document.getElementById('delete-ac-dialog').close()">Cancel</button>
+    <form id="delete-ac-form" method="post" style="display:inline">
+      <button type="submit" class="btn-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</dialog>
+
+<script>
+function openDeleteDialog(name) {
+  document.getElementById('delete-ac-name').textContent = name;
+  document.getElementById('delete-ac-form').action = '/alert-connector/' + encodeURIComponent(name) + '/delete';
+  document.getElementById('delete-ac-dialog').showModal();
+  document.getElementById('delete-ac-dialog').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.close();
+  }, { once: true });
+}
+</script>
+{% endblock %}
