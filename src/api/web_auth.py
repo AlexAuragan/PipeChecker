@@ -7,6 +7,7 @@ Credentials are configured via environment variables:
 
 Authentication is disabled when PIPECHECKER_WEB_PASSWORD_HASH is not set.
 """
+
 import base64
 import hashlib
 import hmac
@@ -36,14 +37,20 @@ def verify_credentials(username: str, password: str) -> bool:
         return False
     try:
         salt_hex, dk_hex = stored.split(":")
-        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), 100_000)
+        dk = hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), bytes.fromhex(salt_hex), 100_000
+        )
         return hmac.compare_digest(dk.hex(), dk_hex)
     except Exception:
         return False
 
 
 def create_session_cookie(username: str) -> str:
-    payload = base64.urlsafe_b64encode(f"{username}:{int(time.time())}".encode()).decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(f"{username}:{int(time.time())}".encode())
+        .decode()
+        .rstrip("=")
+    )
     sig = hmac.new(_get_secret().encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{sig}"
 
@@ -55,7 +62,9 @@ def verify_session_cookie(value: str | None) -> str | None:
         payload, sig = value.rsplit(".", 1)
     except ValueError:
         return None
-    expected_sig = hmac.new(_get_secret().encode(), payload.encode(), hashlib.sha256).hexdigest()
+    expected_sig = hmac.new(
+        _get_secret().encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
     if not hmac.compare_digest(sig, expected_sig):
         return None
     try:

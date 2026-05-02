@@ -22,6 +22,7 @@ PREFIX = "/api/v1/pipelines"
 # Shared client
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def client(api_key):
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -32,12 +33,17 @@ def client(api_key):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _req(step_id: str, branch: int = 0) -> dict:
     return {"step": step_id, "branch": branch}
 
 
-def _step(step_id="new-step", exec_cmd="which bash",
-          check_method="stdout_not_empty", requires=None):
+def _step(
+    step_id="new-step",
+    exec_cmd="which bash",
+    check_method="stdout_not_empty",
+    requires=None,
+):
     body = {"id": step_id, "exec": exec_cmd, "check_method": check_method}
     if requires:
         body["requires"] = requires
@@ -50,13 +56,14 @@ def _pipeline(name="my-pipe", steps=None, connectors=None, runner="proxmox_ct"):
         "pipeline": steps or [_step()],
         "connectors": connectors or [],
         "runner": runner,
-        "cron": "0 0 * * *"
+        "cron": "0 0 * * *",
     }
 
 
 # ---------------------------------------------------------------------------
 # GET /pipelines — list all
 # ---------------------------------------------------------------------------
+
 
 class TestListPipelines:
     def test_returns_list(self, client):
@@ -81,6 +88,7 @@ class TestListPipelines:
 # GET /pipelines/{name} — single pipeline
 # ---------------------------------------------------------------------------
 
+
 class TestGetPipeline:
     def test_found(self, client):
         r = client.get(f"{PREFIX}/curl")
@@ -101,6 +109,7 @@ class TestGetPipeline:
 # ---------------------------------------------------------------------------
 # POST /pipelines — create
 # ---------------------------------------------------------------------------
+
 
 class TestCreatePipeline:
     def test_create(self, client):
@@ -150,10 +159,17 @@ class TestCreatePipeline:
 # PUT /pipelines/{name} — full replace
 # ---------------------------------------------------------------------------
 
+
 class TestReplacePipeline:
     def test_replace(self, client):
         new_step = _step("replaced-step", exec_cmd="which python3")
-        body = {"name": "curl", "pipeline": [new_step], "connectors": ["proxmox"], "runner": "proxmox_ct", "cron": "0 0 * * *"}
+        body = {
+            "name": "curl",
+            "pipeline": [new_step],
+            "connectors": ["proxmox"],
+            "runner": "proxmox_ct",
+            "cron": "0 0 * * *",
+        }
         r = client.put(f"{PREFIX}/curl", json=body)
         assert r.status_code == 200
         step_ids = [s["id"] for s in r.json()["pipeline"]]
@@ -174,6 +190,7 @@ class TestReplacePipeline:
 # GET /pipelines/{name}/steps — list steps
 # ---------------------------------------------------------------------------
 
+
 class TestListSteps:
     def test_list_steps(self, client):
         r = client.get(f"{PREFIX}/curl/steps")
@@ -189,6 +206,7 @@ class TestListSteps:
 # ---------------------------------------------------------------------------
 # POST /pipelines/{name}/steps — add step
 # ---------------------------------------------------------------------------
+
 
 class TestAddStep:
     def test_add_step(self, client):
@@ -230,6 +248,7 @@ class TestAddStep:
 # PATCH /pipelines/{name}/steps/{step_id} — edit step
 # ---------------------------------------------------------------------------
 
+
 class TestEditStep:
     def test_edit_exec(self, client):
         patch = {"exec": "which curl2"}
@@ -261,7 +280,9 @@ class TestEditStep:
 
     def test_edit_check_patterns(self, client):
         # First add a step with a pattern-based check
-        new = _step("pattern-step", exec_cmd="echo hello", check_method="stdout_contains")
+        new = _step(
+            "pattern-step", exec_cmd="echo hello", check_method="stdout_contains"
+        )
         new["check_patterns"] = ["hello"]
         client.post(f"{PREFIX}/curl/steps", json=new)
         # Now patch to update patterns
@@ -275,6 +296,7 @@ class TestEditStep:
 # ---------------------------------------------------------------------------
 # DELETE /pipelines/{name}/steps/{step_id} — remove step
 # ---------------------------------------------------------------------------
+
 
 class TestRemoveStep:
     def test_remove_step(self, client):
@@ -302,7 +324,10 @@ class TestRemoveStep:
 
     def test_remove_required_step_rejected(self, client):
         # Add a step that depends on curl-installed, then try to delete curl-installed
-        client.post(f"{PREFIX}/curl/steps", json=_step("needs-curl", requires=[_req("curl-installed")]))
+        client.post(
+            f"{PREFIX}/curl/steps",
+            json=_step("needs-curl", requires=[_req("curl-installed")]),
+        )
         r = client.delete(f"{PREFIX}/curl/steps/curl-installed")
         print(r.content)
         assert r.status_code == 409

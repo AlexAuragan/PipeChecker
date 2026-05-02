@@ -15,7 +15,6 @@ from src.api.api import app
 from src.api import utils
 from src.classes.connectors import Manager, Proxmox, Caddy
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -50,12 +49,11 @@ def _caddy(name="caddy", path=None):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def _no_save(monkeypatch):
     """Prevent all test runs from writing to disk."""
-    monkeypatch.setattr(
-        "src.api.routers.connectors.save_manager", lambda m: None
-    )
+    monkeypatch.setattr("src.api.routers.connectors.save_manager", lambda m: None)
 
 
 @pytest.fixture()
@@ -92,6 +90,7 @@ PREFIX = "/api/v1/connectors"
 # GET /connectors — list all
 # ---------------------------------------------------------------------------
 
+
 class TestListConnectors:
     def test_empty(self, client_empty):
         r = client_empty.get(PREFIX)
@@ -109,18 +108,24 @@ class TestListConnectors:
         r = client_with_proxmox.get(PREFIX)
         item = r.json()[0]
         assert set(item.keys()) == {
-            "name", "type", "config_path", "config_url", "config_ssh",
+            "name",
+            "type",
+            "config_path",
+            "config_url",
+            "config_ssh",
         }
         assert item["name"] == "proxmox"
         assert item["type"] == "Proxmox"
         assert item["config_ssh"] == [
-            "root@192.168.1.9", "root@192.168.1.10",
+            "root@192.168.1.9",
+            "root@192.168.1.10",
         ]
 
 
 # ---------------------------------------------------------------------------
 # GET /connectors/{name} — single connector
 # ---------------------------------------------------------------------------
+
 
 class TestGetConnector:
     def test_found(self, client_with_proxmox):
@@ -136,6 +141,7 @@ class TestGetConnector:
 # ---------------------------------------------------------------------------
 # POST /connectors — create
 # ---------------------------------------------------------------------------
+
 
 class TestCreateConnector:
     def test_create_proxmox(self, client_empty):
@@ -195,6 +201,7 @@ class TestCreateConnector:
 # PUT /connectors/{name} — full replace
 # ---------------------------------------------------------------------------
 
+
 class TestReplaceConnector:
     def test_replace(self, client_with_proxmox):
         body = {
@@ -220,6 +227,7 @@ class TestReplaceConnector:
 # PATCH /connectors/{name} — partial update
 # ---------------------------------------------------------------------------
 
+
 class TestPatchConnector:
     def test_patch_ssh_only(self, client_with_proxmox):
         body = {"config_ssh": ["root@10.0.0.50"]}
@@ -233,19 +241,19 @@ class TestPatchConnector:
         r = client_with_proxmox.patch(f"{PREFIX}/proxmox", json={})
         assert r.status_code == 200
         assert r.json()["config_ssh"] == [
-            "root@192.168.1.9", "root@192.168.1.10",
+            "root@192.168.1.9",
+            "root@192.168.1.10",
         ]
 
     def test_patch_not_found(self, client_empty):
-        r = client_empty.patch(
-            f"{PREFIX}/ghost", json={"config_ssh": ["root@1.2.3.4"]}
-        )
+        r = client_empty.patch(f"{PREFIX}/ghost", json={"config_ssh": ["root@1.2.3.4"]})
         assert r.status_code == 404
 
 
 # ---------------------------------------------------------------------------
 # DELETE /connectors/{name}
 # ---------------------------------------------------------------------------
+
 
 class TestDeleteConnector:
     def test_delete(self, client_with_proxmox):
@@ -264,6 +272,7 @@ class TestDeleteConnector:
 # POST /connectors/{name}/discover
 # ---------------------------------------------------------------------------
 
+
 class TestTargets:
     """These endpoints SSH into machines, so we mock load_targets."""
 
@@ -273,7 +282,8 @@ class TestTargets:
         fake.config = {"ip": "192.168.1.100", "name": "ct-100"}
 
         with patch.object(
-            Proxmox, "targets",
+            Proxmox,
+            "targets",
             new_callable=lambda: property(lambda self: [fake]),
         ):
             r = client_with_proxmox.get(f"{PREFIX}/proxmox/targets")
@@ -290,7 +300,8 @@ class TestTargets:
 
         with patch.object(Proxmox, "load_targets", return_value=None):
             with patch.object(
-                Proxmox, "targets",
+                Proxmox,
+                "targets",
                 new_callable=lambda: property(lambda self: [fake]),
             ):
                 r = client_with_proxmox.post(f"{PREFIX}/proxmox/discover")

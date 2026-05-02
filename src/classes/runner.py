@@ -18,7 +18,10 @@ class Runner(ABC):
 
     @property
     def execution_graph(self) -> dict[str, set[str]]:
-        return {step.id: {req.step for req in step.requires} for step in self.pipeline.pipeline}
+        return {
+            step.id: {req.step for req in step.requires}
+            for step in self.pipeline.pipeline
+        }
 
     @property
     def target(self) -> t.Target:
@@ -34,9 +37,14 @@ class Runner(ABC):
 
     def _skip_step(self, step: p.PipelineStep) -> r.StepResult:
         return r.StepResult(
-            target_id=self.target.id, step_id=step.id,
-            signal=Status.ok, stdout="", stderr="",
-            branch=-1, skipped=True, duration=0,
+            target_id=self.target.id,
+            step_id=step.id,
+            signal=Status.ok,
+            stdout="",
+            stderr="",
+            branch=-1,
+            skipped=True,
+            duration=0,
         )
 
 
@@ -60,7 +68,10 @@ class RemoteLinuxRunner(Runner, ABC):
                 stdout, stderr, exit_code, duration = self._exec_command(step.exec)
             case ExecMethod.script:
                 from src.config import SCRIPTS_FOLDER
-                stdout, stderr, exit_code, duration = self._exec_script(SCRIPTS_FOLDER / step.exec)
+
+                stdout, stderr, exit_code, duration = self._exec_script(
+                    SCRIPTS_FOLDER / step.exec
+                )
             case _:
                 raise ValueError(f"Unrecognized {step.exec_method}")
 
@@ -74,7 +85,9 @@ class RemoteLinuxRunner(Runner, ABC):
                 case CheckMethod.stdout_not_empty:
                     branch = 0 if stdout else 1
                 case _:
-                    raise ValueError(f"{step.check_method} not recognized as a binary CheckMethod")
+                    raise ValueError(
+                        f"{step.check_method} not recognized as a binary CheckMethod"
+                    )
         else:
             # Pattern-based: branch i = patterns[i] matched, branch len(patterns) = no match
             branch = len(step.check_patterns)
@@ -93,7 +106,9 @@ class RemoteLinuxRunner(Runner, ABC):
                             branch = i
                             break
                     case _:
-                        raise ValueError(f"{step.check_method} not recognized as a pattern CheckMethod")
+                        raise ValueError(
+                            f"{step.check_method} not recognized as a pattern CheckMethod"
+                        )
 
         return stdout, stderr, branch, duration
 
@@ -101,14 +116,20 @@ class RemoteLinuxRunner(Runner, ABC):
         stdout, stderr, branch, duration = self._run_check(step)
         signal = step.get_branch_signal(branch)
         return r.StepResult(
-            self.target.id, step.id,
-            signal=signal, stdout=stdout, stderr=stderr,
-            branch=branch, skipped=False, duration=duration,
+            self.target.id,
+            step.id,
+            signal=signal,
+            stdout=stdout,
+            stderr=stderr,
+            branch=branch,
+            skipped=False,
+            duration=duration,
         )
 
     @override
     def run_pipeline(self) -> r.PipelineResult:
         import traceback
+
         steps_by_id = {step.id: step for step in self.pipeline.pipeline}
         sorter = TopologicalSorter(self.execution_graph)
         sorter.prepare()
@@ -118,9 +139,12 @@ class RemoteLinuxRunner(Runner, ABC):
         while sorter.is_active():
             for step_id in sorter.get_ready():
                 step = steps_by_id[step_id]
-                relevant_reqs = [req for req in step.requires if req.step in results_by_id]
+                relevant_reqs = [
+                    req for req in step.requires if req.step in results_by_id
+                ]
                 should_skip = relevant_reqs and not any(
-                    results_by_id[req.step].branch == req.branch for req in relevant_reqs
+                    results_by_id[req.step].branch == req.branch
+                    for req in relevant_reqs
                 )
                 if should_skip:
                     res = self._skip_step(step)
@@ -129,13 +153,20 @@ class RemoteLinuxRunner(Runner, ABC):
                         res = self._run_step(step)
                     except Exception:
                         res = r.StepResult(
-                            target_id=self.target.id, step_id=step_id,
-                            signal=Status.crashed, stdout="", stderr=traceback.format_exc(),
-                            branch=-1, skipped=False, duration=0,
+                            target_id=self.target.id,
+                            step_id=step_id,
+                            signal=Status.crashed,
+                            stdout="",
+                            stderr=traceback.format_exc(),
+                            branch=-1,
+                            skipped=False,
+                            duration=0,
                         )
                 results_by_id[step_id] = res
                 sorter.done(step_id)
-        pipes_results = {step.id: results_by_id[step.id] for step in self.pipeline.pipeline}
+        pipes_results = {
+            step.id: results_by_id[step.id] for step in self.pipeline.pipeline
+        }
         end = time.time()
         return r.PipelineResult(
             target=self.target,
@@ -149,7 +180,7 @@ class PCTRunner(RemoteLinuxRunner):
     @override
     @property
     def target(self) -> t.ProxmoxCT:
-        return self._target  # type:ignore
+        return self._target  # type: ignore
 
     @override
     def __init__(self, target: t.ProxmoxCT, pipeline: p.Pipeline):
@@ -166,7 +197,7 @@ class LinuxMachineRunner(RemoteLinuxRunner):
     @override
     @property
     def target(self) -> t.RemoteLinuxMachine:
-        return self._target  # type:ignore
+        return self._target  # type: ignore
 
     @override
     def __init__(self, target: t.RemoteLinuxMachine, pipeline: p.Pipeline):

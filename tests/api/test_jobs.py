@@ -9,6 +9,7 @@ via _insert_job() to bypass that constraint.
 run.run_pipeline is patched to a no-op for every test — no SSH, no targets,
 empty results list.
 """
+
 import pytest
 from unittest.mock import patch
 from uuid import UUID, uuid4
@@ -30,6 +31,7 @@ PIPELINE_NAME = "curl"  # present in tests/fixtures/pipelines/fk.yaml
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _fake_run_pipeline(pipeline, manager, on_result=None, should_stop=None):
     """No-op replacement for run_pipeline — no SSH, no targets, empty results."""
     return []
@@ -47,6 +49,7 @@ def db_engine(monkeypatch):
     SQLModel.metadata.create_all(engine)
     import src.core.jobs as jobs_module
     import src.core.database as db_module
+
     monkeypatch.setattr(jobs_module, "engine", engine)
     monkeypatch.setattr(db_module, "engine", engine)
     return engine
@@ -65,6 +68,7 @@ def client(db_engine, api_key):
 @pytest.fixture(autouse=True)
 def clear_cancelled():
     import src.core.jobs as jobs_module
+
     jobs_module._cancelled.clear()
     yield
     jobs_module._cancelled.clear()
@@ -73,6 +77,7 @@ def clear_cancelled():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status=type[JobStatus]) -> UUID:
     """Insert a job directly into the DB, bypassing the API."""
@@ -93,6 +98,7 @@ def _start_job(client, name=PIPELINE_NAME) -> UUID:
 # ---------------------------------------------------------------------------
 # POST /jobs/{name} — start a job
 # ---------------------------------------------------------------------------
+
 
 class TestStartJob:
     def test_returns_202_and_uuid(self, client):
@@ -124,6 +130,7 @@ class TestStartJob:
 # GET /jobs/{job_id} — single job
 # ---------------------------------------------------------------------------
 
+
 class TestGetJob:
     def test_found(self, client):
         job_id = _start_job(client)
@@ -145,6 +152,7 @@ class TestGetJob:
 # ---------------------------------------------------------------------------
 # GET /jobs/ — list all jobs
 # ---------------------------------------------------------------------------
+
 
 class TestListJobs:
     def test_empty_initially(self, client):
@@ -177,6 +185,7 @@ class TestListJobs:
 # POST /jobs/{job_id}/cancel
 # ---------------------------------------------------------------------------
 
+
 class TestCancelJob:
     def test_cancel_pending_job(self, client, db_engine):
         job_id = _insert_job(db_engine, status=JobStatus.pending)
@@ -207,6 +216,7 @@ class TestCancelJob:
 # ---------------------------------------------------------------------------
 # POST /jobs/{job_id}/retry
 # ---------------------------------------------------------------------------
+
 
 class TestRetryJob:
     def test_retry_failed_job_returns_202(self, client, db_engine):

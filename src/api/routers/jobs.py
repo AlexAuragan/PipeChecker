@@ -12,7 +12,9 @@ from src.classes.connectors import Manager
 from src.core import jobs
 from src.core.database import JobSource
 
-router = APIRouter(prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(require_api_key)]
+)
 
 
 class StepResultResponse(BaseModel):
@@ -83,7 +85,10 @@ def get_jobs():
 @router.post("/{job_id}/cancel", status_code=204)
 def cancel_job(job_id: UUID):
     if not jobs.cancel_job(job_id):
-        raise HTTPException(status_code=409, detail="Job is not cancellable (already terminal or not found).")
+        raise HTTPException(
+            status_code=409,
+            detail="Job is not cancellable (already terminal or not found).",
+        )
 
 
 @router.post("/{job_id}/retry", response_model=JobCreatedResponse, status_code=202)
@@ -94,7 +99,10 @@ def retry_job(
 ):
     pipeline_name = jobs.retry_job(job_id)
     if pipeline_name is None:
-        raise HTTPException(status_code=409, detail="Job is not retryable (must be failed or cancelled).")
+        raise HTTPException(
+            status_code=409,
+            detail="Job is not retryable (must be failed or cancelled).",
+        )
     new_job_id = jobs.create_job(pipeline_name=pipeline_name)
     background_tasks.add_task(utils.execute_job, new_job_id, pipeline_name, manager)
     return JobCreatedResponse(job_id=new_job_id)

@@ -13,7 +13,12 @@ from src.core import jobs
 from src.core.database import JobSource
 
 # Substrings that indicate an SSH/authentication failure in a crash traceback.
-_SSH_MARKERS = ("paramiko", "AuthenticationException", "NoValidConnectionsError", "ssh_exception")
+_SSH_MARKERS = (
+    "paramiko",
+    "AuthenticationException",
+    "NoValidConnectionsError",
+    "ssh_exception",
+)
 
 router = APIRouter(tags=["job"], dependencies=[Depends(require_web_auth)])
 
@@ -53,7 +58,10 @@ def web_cancel_job(job_id: UUID):
 @router.post("/{job_id}/delete", response_class=HTMLResponse)
 async def delete_job_route(request: Request, job_id: UUID):
     if not jobs.delete_job(job_id):
-        raise HTTPException(status_code=409, detail="Job cannot be deleted (not found or still running).")
+        raise HTTPException(
+            status_code=409,
+            detail="Job cannot be deleted (not found or still running).",
+        )
     return RedirectResponse("/", status_code=303)
 
 
@@ -67,40 +75,49 @@ def job_page(request: Request, job_id: UUID):
     columns = compute_columns(pipeline.pipeline)
     edges = build_edges(pipeline.pipeline)
     non_leaf_branches = frozenset(
-        (req.step, req.branch)
-        for step in pipeline.pipeline
-        for req in step.requires
+        (req.step, req.branch) for step in pipeline.pipeline for req in step.requires
     )
     step_map = {step.id: step for step in pipeline.pipeline}
 
     target_results = [
         {
-            "target_id":    result["target_id"],
-            "target_name":  result["target_name"],
-            "t_status":     result["status"],
-            "duration":     result["duration"],
+            "target_id": result["target_id"],
+            "target_name": result["target_name"],
+            "t_status": result["status"],
+            "duration": result["duration"],
             "step_results": {s["step_id"]: s for s in result["steps"]},
-            "step_results_json": json.dumps({
-                s["step_id"]: {
-                    "branch":       s["branch"],
-                    "skipped":      s["skipped"],
-                    "signal":       s["signal"],
-                    "duration":     s["duration"],
-                    "stdout":       s["stdout"] or "",
-                    "stderr":       s["stderr"] or "",
-                    "exec":         step_map[s["step_id"]].exec if s["step_id"] in step_map else "",
-                    "check_method": step_map[s["step_id"]].check_method.value if s["step_id"] in step_map else "",
-                    "is_branch":    (s["step_id"], s["branch"]) in non_leaf_branches
-                                    and not s["skipped"]
-                                    and s["signal"] not in ("fail", "crashed"),
+            "step_results_json": json.dumps(
+                {
+                    s["step_id"]: {
+                        "branch": s["branch"],
+                        "skipped": s["skipped"],
+                        "signal": s["signal"],
+                        "duration": s["duration"],
+                        "stdout": s["stdout"] or "",
+                        "stderr": s["stderr"] or "",
+                        "exec": (
+                            step_map[s["step_id"]].exec
+                            if s["step_id"] in step_map
+                            else ""
+                        ),
+                        "check_method": (
+                            step_map[s["step_id"]].check_method.value
+                            if s["step_id"] in step_map
+                            else ""
+                        ),
+                        "is_branch": (s["step_id"], s["branch"]) in non_leaf_branches
+                        and not s["skipped"]
+                        and s["signal"] not in ("fail", "crashed"),
+                    }
+                    for s in result["steps"]
                 }
-                for s in result["steps"]
-            }),
+            ),
         }
         for result in job["results"]
     ]
 
     from src.api.website.utils import signal_group
+
     status_counts = {"green": 0, "orange": 0, "red": 0}
     for tr in target_results:
         status_counts[signal_group(tr["t_status"])] += 1

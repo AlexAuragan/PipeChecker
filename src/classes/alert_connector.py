@@ -73,7 +73,9 @@ class RSSConnector(AlertConnector):
         channel = root.find("channel")
         item = ET.Element("item")
         ET.SubElement(item, "title").text = self._render(self.title_template, alert)
-        ET.SubElement(item, "description").text = self._render(self.description_template, alert)
+        ET.SubElement(item, "description").text = self._render(
+            self.description_template, alert
+        )
         ET.SubElement(item, "link").text = alert.url
         ET.SubElement(item, "pubDate").text = formatdate(alert.triggered_at.timestamp())
         ET.SubElement(item, "guid").text = (
@@ -83,7 +85,7 @@ class RSSConnector(AlertConnector):
         # Insert newest first, then trim to max_items
         first_item_pos = sum(1 for c in channel if c.tag != "item")
         channel.insert(first_item_pos, item)
-        for old in channel.findall("item")[self.max_items:]:
+        for old in channel.findall("item")[self.max_items :]:
             channel.remove(old)
 
         ET.indent(root)
@@ -100,6 +102,7 @@ class WebhookConnector(AlertConnector):
     def send(self, alert: SentAlert) -> None:
         import json
         import httpx
+
         body = json.loads(self._render(self.body_template, alert))
         httpx.post(self.url, json=body, headers=self.headers, timeout=10)
 

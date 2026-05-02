@@ -25,6 +25,7 @@ app = FastAPI(lifespan=utils.lifespan, title="Pipeline Runner", version="0.1.0")
 async def requires_login_handler(request: Request, exc: RequiresLoginException):
     return RedirectResponse(url=f"/login?next={exc.next_url}", status_code=303)
 
+
 # API
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(connectors_router, prefix="/api/v1")

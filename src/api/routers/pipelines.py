@@ -10,13 +10,17 @@ from src.classes import pipeline as p
 from src.classes.pipeline import CheckMethod
 from src.core import storage
 
-router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(require_api_key)]
+)
 
 
 ## Schema
 
+
 class PipelineStepPatch(BaseModel):
     """Partial update payload for a single pipeline step."""
+
     exec: str | None = None
     check_method: CheckMethod | None = None
     check_patterns: list[str | float | int] | None = None
@@ -24,6 +28,7 @@ class PipelineStepPatch(BaseModel):
 
 
 ## Routes — Pipelines
+
 
 @router.get("", response_model=list[p.Pipeline])
 def list_pipeline():
@@ -39,7 +44,9 @@ def get_pipeline(name: str, group: Annotated[str | None, Query()] = None):
 
 
 @router.post("", response_model=p.Pipeline, status_code=status.HTTP_201_CREATED)
-def create_pipeline(request: Request, body: p.Pipeline, group: Annotated[str | None, Query()] = None):
+def create_pipeline(
+    request: Request, body: p.Pipeline, group: Annotated[str | None, Query()] = None
+):
     try:
         get_pipeline_or_404(body.name, group)
         raise HTTPException(
@@ -51,12 +58,18 @@ def create_pipeline(request: Request, body: p.Pipeline, group: Annotated[str | N
             raise
 
     storage.save_pipeline(body, group=group or body.name)
-    scheduler.add_job(make_scheduled_job(request.app, body), CronTrigger.from_crontab(body.cron), id=body.name)
+    scheduler.add_job(
+        make_scheduled_job(request.app, body),
+        CronTrigger.from_crontab(body.cron),
+        id=body.name,
+    )
     return body
 
 
 @router.put("/{name}", response_model=p.Pipeline)
-def replace_pipeline(name: str, body: p.Pipeline, group: Annotated[str | None, Query()] = None):
+def replace_pipeline(
+    name: str, body: p.Pipeline, group: Annotated[str | None, Query()] = None
+):
     pipe, group = get_pipeline_or_404(name, group)
     if body.name != name:
         raise HTTPException(status_code=400, detail="Body name must match path name.")
@@ -73,6 +86,7 @@ def delete_pipeline(name: str, group: Annotated[str | None, Query()] = None):
 
 ## Routes — Pipeline steps
 
+
 @router.get("/{name}/steps", response_model=list[p.PipelineStep])
 def list_steps(name: str, group: Annotated[str | None, Query()] = None):
     pipe, group = get_pipeline_or_404(name, group)
@@ -80,18 +94,25 @@ def list_steps(name: str, group: Annotated[str | None, Query()] = None):
 
 
 @router.post("/{name}/steps", response_model=p.Pipeline)
-def add_step(name: str, body: p.PipelineStep, group: Annotated[str | None, Query()] = None):
+def add_step(
+    name: str, body: p.PipelineStep, group: Annotated[str | None, Query()] = None
+):
     pipe, group = get_pipeline_or_404(name, group)
     assert isinstance(pipe, p.Pipeline)
     curr_ids = [step.id for step in pipe.pipeline]
     if body.id in curr_ids:
         raise HTTPException(status_code=422, detail="Step id already in pipeline")
     if any(req.step not in curr_ids for req in body.requires):
-        raise HTTPException(status_code=422, detail="Step requires a non existing step id")
+        raise HTTPException(
+            status_code=422, detail="Step requires a non existing step id"
+        )
     try:
         updated = p.Pipeline(
-            name=pipe.name, pipeline=pipe.pipeline + [body],
-            connectors=pipe.connectors, runner=pipe.runner, cron=pipe.cron,
+            name=pipe.name,
+            pipeline=pipe.pipeline + [body],
+            connectors=pipe.connectors,
+            runner=pipe.runner,
+            cron=pipe.cron,
         )
     except ValidationError as e:
         messages = [err["msg"] for err in e.errors()]
@@ -102,20 +123,32 @@ def add_step(name: str, body: p.PipelineStep, group: Annotated[str | None, Query
 
 
 @router.patch("/{name}/steps/{step_id}", response_model=p.Pipeline)
-def edit_step(name: str, step_id: str, body: PipelineStepPatch, group: Annotated[str | None, Query()] = None):
+def edit_step(
+    name: str,
+    step_id: str,
+    body: PipelineStepPatch,
+    group: Annotated[str | None, Query()] = None,
+):
     pipe, group = get_pipeline_or_404(name, group)
     step = next((s for s in pipe.pipeline if s.id == step_id), None)
     curr_ids = [step.id for step in pipe.pipeline]
     if step is None:
-        raise HTTPException(status_code=404, detail=f"Step '{step_id}' not found in pipeline {name}.")
+        raise HTTPException(
+            status_code=404, detail=f"Step '{step_id}' not found in pipeline {name}."
+        )
     if any(req.step not in curr_ids for req in body.requires):
-        raise HTTPException(status_code=422, detail="Step requires a non existing step id")
+        raise HTTPException(
+            status_code=422, detail="Step requires a non existing step id"
+        )
     patched = step.model_copy(update=body.model_dump(exclude_none=True))
     new_steps = [patched if step.id == step_id else step for step in pipe.pipeline]
     try:
         updated = p.Pipeline(
-            name=pipe.name, pipeline=new_steps,
-            connectors=pipe.connectors, runner=pipe.runner, cron=pipe.cron,
+            name=pipe.name,
+            pipeline=new_steps,
+            connectors=pipe.connectors,
+            runner=pipe.runner,
+            cron=pipe.cron,
         )
     except ValidationError as e:
         messages = [err["msg"] for err in e.errors()]
@@ -134,8 +167,11 @@ def remove_step(name: str, step_id: str, group: Annotated[str | None, Query()] =
         raise HTTPException(status_code=422, detail="Pipeline cannot be empty.")
     try:
         updated = p.Pipeline(
-            name=pipe.name, pipeline=new_steps,
-            connectors=pipe.connectors, runner=pipe.runner, cron=pipe.cron,
+            name=pipe.name,
+            pipeline=new_steps,
+            connectors=pipe.connectors,
+            runner=pipe.runner,
+            cron=pipe.cron,
         )
     except ValidationError as e:
         messages = [err["msg"] for err in e.errors()]

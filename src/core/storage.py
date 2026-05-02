@@ -10,7 +10,9 @@ from src.classes.alert_connector import AlertConnector
 from src.classes.connectors import Manager, Connector
 
 
-def load_pipeline_config(path: str | Path) -> tuple[list[str], dict[str, pipeline.Pipeline]]:
+def load_pipeline_config(
+    path: str | Path,
+) -> tuple[list[str], dict[str, pipeline.Pipeline]]:
     """Parse a pipeline YAML file and return (connector_names, pipelines_by_name)."""
     raw = yaml.safe_load(Path(path).read_text())
     pipes_raw = raw["pipelines"]
@@ -36,7 +38,9 @@ def load_pipelines(group: str = None) -> dict[str, dict[str, pipeline.Pipeline]]
         pipes = load_pipeline_config(config.PIPELINE_FOLDER / conf)[1]
         if any(k in seen for k in pipes.keys()):
             # TODO
-            raise ValueError("Two pipelines with the same name found in different group. Still brainstorming about what to do in that case")
+            raise ValueError(
+                "Two pipelines with the same name found in different group. Still brainstorming about what to do in that case"
+            )
         seen.update(pipes.keys())
         out[conf.split(".")[0]] = pipes
     return out
@@ -70,8 +74,7 @@ def update_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
     raw = yaml.safe_load(path.read_text())
     pipe_dict = pipe.model_dump(mode="json", exclude={"connectors"})
     raw["pipelines"] = [
-        pipe_dict if p["name"] == pipe.name else p
-        for p in raw["pipelines"]
+        pipe_dict if p["name"] == pipe.name else p for p in raw["pipelines"]
     ]
     with open(path, "w") as f:
         yaml.dump(raw, f, default_flow_style=False, allow_unicode=True)
@@ -107,7 +110,10 @@ def load_manager() -> Manager:
 def load_alerts() -> list[AlertConfig]:
     if not config.ALERT_FILE.exists():
         return []
-    return [AlertConfig.model_validate(a) for a in yaml.safe_load(config.ALERT_FILE.read_text()) or []]
+    return [
+        AlertConfig.model_validate(a)
+        for a in yaml.safe_load(config.ALERT_FILE.read_text()) or []
+    ]
 
 
 def save_alert(alert: AlertConfig) -> None:
@@ -137,7 +143,11 @@ def delete_alert(name: str) -> None:
 
 def _write_alerts(alerts: list[AlertConfig]) -> None:
     config.ALERT_FILE.write_text(
-        yaml.dump([a.model_dump(mode="json") for a in alerts], default_flow_style=False, allow_unicode=True)
+        yaml.dump(
+            [a.model_dump(mode="json") for a in alerts],
+            default_flow_style=False,
+            allow_unicode=True,
+        )
     )
 
 
@@ -145,7 +155,9 @@ def load_alert_connectors() -> list[AlertConnector]:
     if not config.ALERT_CONNECTOR_FILE.exists():
         return []
     data = yaml.safe_load(config.ALERT_CONNECTOR_FILE.read_text()) or {}
-    return [AlertConnector.from_str(yaml.dump({name: conf})) for name, conf in data.items()]
+    return [
+        AlertConnector.from_str(yaml.dump({name: conf})) for name, conf in data.items()
+    ]
 
 
 def save_alert_connector(connector: AlertConnector) -> None:

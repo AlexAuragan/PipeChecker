@@ -5,7 +5,13 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    PrivateAttr,
+    field_validator,
+    model_validator,
+)
 
 from src import config
 from src.classes import utils
@@ -67,6 +73,7 @@ class Connector(BaseModel, ABC):
     """
     Used to extract list of Target from various configs
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
     type: ConnectorType
@@ -93,18 +100,22 @@ class Connector(BaseModel, ABC):
 
     @abstractmethod
     def single_init(
-            self,
-            config_path: str | Path = None,
-            config_url: str = None,
-            config_ssh: str = None,
+        self,
+        config_path: str | Path = None,
+        config_url: str = None,
+        config_ssh: str = None,
     ) -> list[target.Target]:
         """Fetch targets from one config source. Exactly one argument will be non-None."""
         pass
 
     def load_targets(self):
         self._targets: list[target.Target] = []
-        for cp, cu, cs in zip_longest(self.config_path, self.config_url, self.config_ssh):
-            self._targets += self.single_init(config_path=cp, config_url=cu, config_ssh=cs)
+        for cp, cu, cs in zip_longest(
+            self.config_path, self.config_url, self.config_ssh
+        ):
+            self._targets += self.single_init(
+                config_path=cp, config_url=cu, config_ssh=cs
+            )
 
     @property
     def is_loaded(self) -> bool:
@@ -113,7 +124,9 @@ class Connector(BaseModel, ABC):
     @property
     def targets(self):
         if self._load_error is not None:
-            raise RuntimeError(f"Connector '{self.name}' failed to load targets: {self._load_error}")
+            raise RuntimeError(
+                f"Connector '{self.name}' failed to load targets: {self._load_error}"
+            )
         if self._targets is None:
             self.load_targets()
         return self._targets
@@ -127,6 +140,7 @@ class Connector(BaseModel, ABC):
     @staticmethod
     def from_str(content: str) -> "Connector":
         from src import classes
+
         data = yaml.safe_load(content)
         name, conf = next(iter(data.items()))
         cls = classes.connectors[ConnectorType(conf.pop("type")).value]
@@ -137,12 +151,11 @@ class Caddy(Connector):
     type: Literal[ConnectorType.caddy] = ConnectorType.caddy
     config_path: list[str] = ["/etc/caddy/Caddyfile"]
 
-
     def single_init(
-            self,
-            config_path: str | Path = "",
-            config_url: str = None,
-            config_ssh: str = None,
+        self,
+        config_path: str | Path = "",
+        config_url: str = None,
+        config_ssh: str = None,
     ) -> list[target.Target]:
         content: str
         if config_url:
@@ -169,19 +182,21 @@ class LinuxMachine(Connector):
         return data
 
     def single_init(
-            self,
-            config_path: str | Path = None,
-            config_url: str = None,
-            config_ssh: str = None,
+        self,
+        config_path: str | Path = None,
+        config_url: str = None,
+        config_ssh: str = None,
     ) -> list[target.Target]:
         hostname = utils.execute_on_machine(config_ssh, "hostname").strip()
         user, ip = config_ssh.split("@")
-        return [target.RemoteLinuxMachine(
-            machine_ip=IPv4Address(ip),
-            user=user,
-            exec_dir=self.exec_dir,
-            hostname=hostname,
-        )]
+        return [
+            target.RemoteLinuxMachine(
+                machine_ip=IPv4Address(ip),
+                user=user,
+                exec_dir=self.exec_dir,
+                hostname=hostname,
+            )
+        ]
 
 
 class Proxmox(Connector):
@@ -196,10 +211,10 @@ class Proxmox(Connector):
         return data
 
     def single_init(
-            self,
-            config_path: str | Path = None,
-            config_url: str = None,
-            config_ssh: str = None,
+        self,
+        config_path: str | Path = None,
+        config_url: str = None,
+        config_ssh: str = None,
     ) -> list[target.Target]:
         stdout = utils.execute_on_machine(config_ssh, "pct list")
         pct_list = parse_table(stdout)
@@ -228,9 +243,15 @@ class Proxmox(Connector):
             pct_id = pct["VMID"]
             stdout = utils.execute_on_machine(config_ssh, f"pct config {pct_id}")
             pct_info = pct_config_parser(stdout)
-            targets.append(target.ProxmoxCT(
-                pct_id=pct["VMID"], pct_ip=IPv4Address(pct_info["ip"]), pct_name=pct["Name"], pct_status=pct["Status"],
-                node_name=hostname, node_ip=IPv4Address(config_ssh.split("@")[1]),
-                ostype=pct_info["ostype"]
-            ))
+            targets.append(
+                target.ProxmoxCT(
+                    pct_id=pct["VMID"],
+                    pct_ip=IPv4Address(pct_info["ip"]),
+                    pct_name=pct["Name"],
+                    pct_status=pct["Status"],
+                    node_name=hostname,
+                    node_ip=IPv4Address(config_ssh.split("@")[1]),
+                    ostype=pct_info["ostype"],
+                )
+            )
         return targets

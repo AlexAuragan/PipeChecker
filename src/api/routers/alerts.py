@@ -4,7 +4,9 @@ from src.api.security import require_api_key
 from src.classes.alert import AlertConfig
 from src.core import jobs, storage
 
-router = APIRouter(prefix="/alerts", tags=["alerts"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/alerts", tags=["alerts"], dependencies=[Depends(require_api_key)]
+)
 
 
 @router.get("")

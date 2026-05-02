@@ -12,7 +12,7 @@ connectors: dict[str, type[_connectors.Connector]] = {
 CONNECTOR_RUNNER_MAP: dict[ConnectorType, RunnerType] = {
     ConnectorType.proxmox: RunnerType.proxmox_ct,
     ConnectorType.linux_machine: RunnerType.linux_machine,
-    ConnectorType.caddy: RunnerType.web
+    ConnectorType.caddy: RunnerType.web,
 }
 
 
@@ -24,5 +24,5 @@ __all__ = [
     "Runner",
     "RemoteLinuxRunner",
     "LinuxMachineRunner",
-    "PCTRunner"
+    "PCTRunner",
 ]

@@ -35,6 +35,7 @@ class PipelineStep(BaseModel):
     def validate_exec_script(self) -> "PipelineStep":
         if self.exec_method == ExecMethod.script:
             from src.config import SCRIPTS_FOLDER
+
             script_path = SCRIPTS_FOLDER / self.exec
             if not script_path.exists():
                 raise ValueError(
@@ -53,9 +54,7 @@ class PipelineStep(BaseModel):
                 f"Step '{self.id}': check_pattern is forbidden for check_method '{self.check_method}'"
             )
         if any(req.step == self.id for req in self.requires):
-            raise ValueError(
-                "Step own id cannot be in requires."
-            )
+            raise ValueError("Step own id cannot be in requires.")
         seen_pairs: set[tuple[str, int]] = set()
         for req in self.requires:
             pair = (req.step, req.branch)
@@ -127,6 +126,7 @@ class Pipeline(BaseModel):
     @classmethod
     def validate_cron(cls, v: str) -> str:
         from apscheduler.triggers.cron import CronTrigger
+
         try:
             CronTrigger.from_crontab(v)
         except ValueError as e:

@@ -92,12 +92,16 @@ def cmd_setup(args):
 
     if not has_systemd:
         print("\n⚠ systemd not found — skipping service installation.")
-        print(f"  To run manually: cd {project_dir} && uv run fastapi run src/api/api.py")
+        print(
+            f"  To run manually: cd {project_dir} && uv run fastapi run src/api/api.py"
+        )
         return
 
     if os.geteuid() != 0:
         print("\n⚠ Not running as root — skipping systemd service installation.")
-        print(f"  Re-run with sudo to install the service, or create {service_path} manually.")
+        print(
+            f"  Re-run with sudo to install the service, or create {service_path} manually."
+        )
         return
 
     service_content = textwrap.dedent(f"""\
@@ -137,15 +141,33 @@ def main():
     parser = argparse.ArgumentParser(prog="pipechecker", description="PipeChecker CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("generate-key", help="Generate a new API key and its storable hash")
+    subparsers.add_parser(
+        "generate-key", help="Generate a new API key and its storable hash"
+    )
 
-    web_pw_parser = subparsers.add_parser("generate-web-password", help="Generate web UI credentials (username + password hash + signing secret)")
-    web_pw_parser.add_argument("--username", default="admin", help="Username (default: admin)")
-    web_pw_parser.add_argument("--password", default=None, help="Password (auto-generated if omitted)")
+    web_pw_parser = subparsers.add_parser(
+        "generate-web-password",
+        help="Generate web UI credentials (username + password hash + signing secret)",
+    )
+    web_pw_parser.add_argument(
+        "--username", default="admin", help="Username (default: admin)"
+    )
+    web_pw_parser.add_argument(
+        "--password", default=None, help="Password (auto-generated if omitted)"
+    )
 
-    setup_parser = subparsers.add_parser("setup", help="Generate API key, web credentials, write .env, and install systemd service")
-    setup_parser.add_argument("--dir", default=None, help="Project directory (default: current working directory)")
-    setup_parser.add_argument("--port", default=8000, type=int, help="Port to listen on (default: 8000)")
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Generate API key, web credentials, write .env, and install systemd service",
+    )
+    setup_parser.add_argument(
+        "--dir",
+        default=None,
+        help="Project directory (default: current working directory)",
+    )
+    setup_parser.add_argument(
+        "--port", default=8000, type=int, help="Port to listen on (default: 8000)"
+    )
 
     args = parser.parse_args()
 

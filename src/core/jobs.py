@@ -5,8 +5,15 @@ from sqlmodel import Session, select, delete as sql_delete
 
 from src.classes.results import PipelineResult
 from src.core.database import (
-    ArchivedRun, ArchivedStepResult, Job, JobSource, JobStatus,
-    LivePipelineResult, LiveStepResult, SentAlertRecord, engine,
+    ArchivedRun,
+    ArchivedStepResult,
+    Job,
+    JobSource,
+    JobStatus,
+    LivePipelineResult,
+    LiveStepResult,
+    SentAlertRecord,
+    engine,
 )
 
 MAX_OUTPUT_LEN = 4096
@@ -17,7 +24,9 @@ def is_cancelled(job_id: UUID) -> bool:
     return job_id in _cancelled
 
 
-def create_job(uuid: UUID = None, pipeline_name: str = None, source: JobSource = JobSource.manual) -> UUID:
+def create_job(
+    uuid: UUID = None, pipeline_name: str = None, source: JobSource = JobSource.manual
+) -> UUID:
     with Session(engine) as session:
         job = Job(pipeline_name=pipeline_name, uuid=uuid, source=source)
         session.add(job)
@@ -26,7 +35,9 @@ def create_job(uuid: UUID = None, pipeline_name: str = None, source: JobSource =
         return job.id
 
 
-def set_job_status(job_id: UUID, status: JobStatus, crash_reason: str | None = None) -> None:
+def set_job_status(
+    job_id: UUID, status: JobStatus, crash_reason: str | None = None
+) -> None:
     with Session(engine) as session:
         job = session.get(Job, job_id)
         if job is None:
@@ -63,16 +74,18 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
         session.flush()
 
         for step in result.steps.values():
-            session.add(LiveStepResult(
-                pipeline_result_id=pr.id,
-                step_id=step.step_id,
-                signal=step.signal.value,
-                stdout=step.stdout[:MAX_OUTPUT_LEN],
-                stderr=step.stderr[:MAX_OUTPUT_LEN],
-                branch=step.branch,
-                skipped=step.skipped,
-                duration=step.duration,
-            ))
+            session.add(
+                LiveStepResult(
+                    pipeline_result_id=pr.id,
+                    step_id=step.step_id,
+                    signal=step.signal.value,
+                    stdout=step.stdout[:MAX_OUTPUT_LEN],
+                    stderr=step.stderr[:MAX_OUTPUT_LEN],
+                    branch=step.branch,
+                    skipped=step.skipped,
+                    duration=step.duration,
+                )
+            )
         session.commit()
 
 
@@ -114,7 +127,12 @@ def get_job(job_id: UUID) -> dict | None:
         }
 
 
-_TERMINAL = (JobStatus.completed, JobStatus.failed, JobStatus.crashed, JobStatus.cancelled)
+_TERMINAL = (
+    JobStatus.completed,
+    JobStatus.failed,
+    JobStatus.crashed,
+    JobStatus.cancelled,
+)
 _STALE_AFTER = timedelta(hours=1)
 
 
@@ -131,9 +149,9 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
         to_crash: list[Job] = []
 
         if crash_all_running:
-            to_crash = list(session.exec(
-                select(Job).where(Job.status == JobStatus.running)
-            ).all())
+            to_crash = list(
+                session.exec(select(Job).where(Job.status == JobStatus.running)).all()
+            )
 
         stale = session.exec(
             select(Job).where(
@@ -158,7 +176,9 @@ def archive_old_jobs() -> None:
         old_jobs = session.exec(
             select(Job).where(
                 Job.created_at < cutoff,
-                Job.status.in_([JobStatus.completed, JobStatus.failed, JobStatus.crashed]),
+                Job.status.in_(
+                    [JobStatus.completed, JobStatus.failed, JobStatus.crashed]
+                ),
             )
         ).all()
 
@@ -187,20 +207,23 @@ def archive_old_jobs() -> None:
 
                 if changed:
                     for step in pr.steps:
-                        session.add(ArchivedStepResult(
-                            archived_run_id=archived.id,
-                            step_id=step.step_id,
-                            signal=step.signal,
-                            stdout=step.stdout,
-                            stderr=step.stderr,
-                            branch=step.branch,
-                            skipped=step.skipped,
-                            duration=step.duration,
-                        ))
+                        session.add(
+                            ArchivedStepResult(
+                                archived_run_id=archived.id,
+                                step_id=step.step_id,
+                                signal=step.signal,
+                                stdout=step.stdout,
+                                stderr=step.stderr,
+                                branch=step.branch,
+                                skipped=step.skipped,
+                                duration=step.duration,
+                            )
+                        )
 
             session.delete(job)
 
         session.commit()
+
 
 def cancel_job(job_id: UUID) -> bool:
     """Returns False if the job doesn't exist or is already terminal."""
@@ -219,7 +242,11 @@ def retry_job(job_id: UUID) -> str | None:
     """Creates a new job for the same pipeline. Returns None if original not found or not retryable."""
     with Session(engine) as session:
         job = session.get(Job, job_id)
-        if job is None or job.status not in (JobStatus.failed, JobStatus.crashed, JobStatus.cancelled):
+        if job is None or job.status not in (
+            JobStatus.failed,
+            JobStatus.crashed,
+            JobStatus.cancelled,
+        ):
             return None
         return job.pipeline_name
 
@@ -251,22 +278,26 @@ def delete_cancelled_jobs() -> None:
 
 def record_sent_alert(alert: "SentAlert") -> None:  # type: ignore[name-defined]
     with Session(engine) as session:
-        session.add(SentAlertRecord(
-            alert_name=alert.alert_name,
-            pipeline_name=alert.pipeline_name,
-            target_id=str(alert.target_id),
-            target_name=alert.target_name or "",
-            signal=alert.signal.value,
-            url=alert.url,
-            triggered_at=alert.triggered_at,
-        ))
+        session.add(
+            SentAlertRecord(
+                alert_name=alert.alert_name,
+                pipeline_name=alert.pipeline_name,
+                target_id=str(alert.target_id),
+                target_name=alert.target_name or "",
+                signal=alert.signal.value,
+                url=alert.url,
+                triggered_at=alert.triggered_at,
+            )
+        )
         session.commit()
 
 
 def list_alert_history(limit: int = 200) -> list[dict]:
     with Session(engine) as session:
         records = session.exec(
-            select(SentAlertRecord).order_by(SentAlertRecord.triggered_at.desc()).limit(limit)
+            select(SentAlertRecord)
+            .order_by(SentAlertRecord.triggered_at.desc())
+            .limit(limit)
         ).all()
         return [
             {
@@ -289,7 +320,13 @@ def clear_alert_history() -> None:
         session.commit()
 
 
-_SIGNAL_SEVERITY: dict[str, int] = {"ok": 0, "update": 1, "warning": 2, "fail": 3, "crashed": 4}
+_SIGNAL_SEVERITY: dict[str, int] = {
+    "ok": 0,
+    "update": 1,
+    "warning": 2,
+    "fail": 3,
+    "crashed": 4,
+}
 
 
 def list_jobs() -> list[dict]:
@@ -298,13 +335,19 @@ def list_jobs() -> list[dict]:
         result = []
         for job in all_jobs:
             signals = [pr.status for pr in job.results]
-            worst = max(signals, key=lambda s: _SIGNAL_SEVERITY.get(s, 0)) if signals else None
-            result.append({
-                "id": job.id,
-                "pipeline_name": job.pipeline_name,
-                "status": job.status,
-                "signal": worst,
-                "source": job.source,
-                "created_at": job.created_at,
-            })
+            worst = (
+                max(signals, key=lambda s: _SIGNAL_SEVERITY.get(s, 0))
+                if signals
+                else None
+            )
+            result.append(
+                {
+                    "id": job.id,
+                    "pipeline_name": job.pipeline_name,
+                    "status": job.status,
+                    "signal": worst,
+                    "source": job.source,
+                    "created_at": job.created_at,
+                }
+            )
         return result

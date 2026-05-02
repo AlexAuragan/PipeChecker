@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
@@ -18,10 +18,14 @@ def _parse_alert_form(form) -> AlertConfig:
     pipeline = (form.get("pipeline") or "").strip() or None
     on_signals_raw = [v for k, v in form.multi_items() if k == "on_signals"]
     connector = (form.get("connector") or "").strip() or None
-    return AlertConfig.model_validate({
-        "name": name, "pipeline": pipeline,
-        "on_signals": on_signals_raw, "connector": connector,
-    })
+    return AlertConfig.model_validate(
+        {
+            "name": name,
+            "pipeline": pipeline,
+            "on_signals": on_signals_raw,
+            "connector": connector,
+        }
+    )
 
 
 def _form_data_from_form(form, name_override: str | None = None) -> dict:
@@ -40,12 +44,16 @@ def _form_data_from_form(form, name_override: str | None = None) -> dict:
 
 
 def _validation_errors(exc: ValidationError | ValueError | KeyError) -> list[str]:
-    if hasattr(exc, "errors"):
-        return [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()]
+    if isinstance(exc, ValidationError):
+        return [
+            f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()
+        ]
     return [str(exc)]
 
 
-def _form_ctx(form_data: dict, editing: bool = False, errors: list | None = None) -> dict:
+def _form_ctx(
+    form_data: dict, editing: bool = False, errors: list | None = None
+) -> dict:
     return {
         "editing": editing,
         "form_data": form_data,
@@ -62,22 +70,33 @@ def _available_pipeline_names() -> list[str]:
 
 @router.get("", response_class=HTMLResponse)
 def alerts_page(request: Request):
-    return templates.TemplateResponse(request=request, name="alerts.html", context={
-        "request": request,
-        "alerts": storage.load_alerts(),
-        "history": jobs.list_alert_history(limit=100),
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="alerts.html",
+        context={
+            "request": request,
+            "alerts": storage.load_alerts(),
+            "history": jobs.list_alert_history(limit=100),
+        },
+    )
 
 
 @router.get("/new", response_class=HTMLResponse)
 def new_alert_page(request: Request, pipeline: str = ""):
     form_data = {
-        "name": "", "pipeline": pipeline or None,
-        "on_signals": [Status.fail, Status.crashed], "connector": None,
+        "name": "",
+        "pipeline": pipeline or None,
+        "on_signals": [Status.fail, Status.crashed],
+        "connector": None,
     }
-    return templates.TemplateResponse(request=request, name="alert_form.html", context={
-        "request": request, **_form_ctx(form_data),
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="alert_form.html",
+        context={
+            "request": request,
+            **_form_ctx(form_data),
+        },
+    )
 
 
 @router.post("/new", response_class=HTMLResponse)
@@ -86,10 +105,15 @@ async def create_alert_route(request: Request):
     try:
         storage.save_alert(_parse_alert_form(form))
     except (ValidationError, ValueError) as exc:
-        return templates.TemplateResponse(request=request, name="alert_form.html", status_code=422, context={
-            "request": request,
-            **_form_ctx(_form_data_from_form(form), errors=_validation_errors(exc)),
-        })
+        return templates.TemplateResponse(
+            request=request,
+            name="alert_form.html",
+            status_code=422,
+            context={
+                "request": request,
+                **_form_ctx(_form_data_from_form(form), errors=_validation_errors(exc)),
+            },
+        )
     return RedirectResponse("/alert", status_code=303)
 
 
@@ -105,10 +129,20 @@ def edit_alert_page(request: Request, name: str):
     if name not in alerts:
         return RedirectResponse("/alert", status_code=303)
     a = alerts[name]
-    form_data = {"name": a.name, "pipeline": a.pipeline, "on_signals": a.on_signals, "connector": a.connector}
-    return templates.TemplateResponse(request=request, name="alert_form.html", context={
-        "request": request, **_form_ctx(form_data, editing=True),
-    })
+    form_data = {
+        "name": a.name,
+        "pipeline": a.pipeline,
+        "on_signals": a.on_signals,
+        "connector": a.connector,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="alert_form.html",
+        context={
+            "request": request,
+            **_form_ctx(form_data, editing=True),
+        },
+    )
 
 
 @router.post("/{name}/edit", response_class=HTMLResponse)
@@ -118,14 +152,27 @@ async def update_alert_route(request: Request, name: str):
         alert = _parse_alert_form(form)
         # Name is readonly in edit mode — enforce it matches the URL
         if alert.name != name:
-            alert = AlertConfig(name=name, pipeline=alert.pipeline,
-                                on_signals=alert.on_signals, connector=alert.connector)
+            alert = AlertConfig(
+                name=name,
+                pipeline=alert.pipeline,
+                on_signals=alert.on_signals,
+                connector=alert.connector,
+            )
         storage.update_alert(alert)
     except (ValidationError, ValueError, KeyError) as exc:
-        return templates.TemplateResponse(request=request, name="alert_form.html", status_code=422, context={
-            "request": request,
-            **_form_ctx(_form_data_from_form(form, name_override=name), editing=True, errors=_validation_errors(exc)),
-        })
+        return templates.TemplateResponse(
+            request=request,
+            name="alert_form.html",
+            status_code=422,
+            context={
+                "request": request,
+                **_form_ctx(
+                    _form_data_from_form(form, name_override=name),
+                    editing=True,
+                    errors=_validation_errors(exc),
+                ),
+            },
+        )
     return RedirectResponse("/alert", status_code=303)
 
 

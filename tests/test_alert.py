@@ -17,8 +17,8 @@ from src.classes.alert_connector import (
 from src.classes.enums import AlertConnectorType, Status
 from src.core import storage
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _alert(name="test-alert", pipeline=None, on_signals=None) -> AlertConfig:
     kwargs: dict = {"name": name}
@@ -49,7 +49,9 @@ def _sent(
     return SentAlert(**kwargs)
 
 
-def _webhook(name="my-hook", url="https://example.com/hook", **kwargs) -> WebhookConnector:
+def _webhook(
+    name="my-hook", url="https://example.com/hook", **kwargs
+) -> WebhookConnector:
     return WebhookConnector(name=name, url=url, **kwargs)
 
 
@@ -58,6 +60,7 @@ def _rss(name="my-rss", feed_path="/tmp/test-feed.xml", **kwargs) -> RSSConnecto
 
 
 # ── AlertConfig ───────────────────────────────────────────────────────────────
+
 
 class TestAlertConfig:
     def test_defaults(self):
@@ -79,11 +82,14 @@ class TestAlertConfig:
             AlertConfig(name="x", on_signals=[])
 
     def test_multiple_signals(self):
-        a = AlertConfig(name="x", on_signals=[Status.warning, Status.fail, Status.crashed])
+        a = AlertConfig(
+            name="x", on_signals=[Status.warning, Status.fail, Status.crashed]
+        )
         assert len(a.on_signals) == 3
 
 
 # ── SentAlert ─────────────────────────────────────────────────────────────────
+
 
 class TestSentAlert:
     def test_url_defaults_to_base_url(self):
@@ -103,8 +109,11 @@ class TestSentAlert:
     def test_explicit_triggered_at(self):
         ts = datetime(2024, 6, 1, 12, 0, 0)
         s = SentAlert(
-            alert_name="a", pipeline_name="p", target_id="1",
-            target_name="ct-1", signal=Status.warning,
+            alert_name="a",
+            pipeline_name="p",
+            target_id="1",
+            target_name="ct-1",
+            signal=Status.warning,
             triggered_at=ts,
         )
         assert s.triggered_at == ts
@@ -115,6 +124,7 @@ class TestSentAlert:
 
 
 # ── Alert storage ─────────────────────────────────────────────────────────────
+
 
 class TestLoadAlerts:
     def test_empty_when_file_absent(self):
@@ -195,6 +205,7 @@ class TestDeleteAlert:
 
 # ── Alert connector storage ───────────────────────────────────────────────────
 
+
 class TestLoadAlertConnectors:
     def test_empty_when_file_absent(self):
         assert storage.load_alert_connectors() == []
@@ -205,7 +216,9 @@ class TestLoadAlertConnectors:
         assert len(storage.load_alert_connectors()) == 2
 
     def test_type_preserved(self):
-        storage.save_alert_connector(DiscordConnector(name="dc", url="https://discord.com/x"))
+        storage.save_alert_connector(
+            DiscordConnector(name="dc", url="https://discord.com/x")
+        )
         [c] = storage.load_alert_connectors()
         assert isinstance(c, DiscordConnector)
 
@@ -262,15 +275,21 @@ class TestDeleteAlertConnector:
 
 # ── _render ───────────────────────────────────────────────────────────────────
 
+
 class TestRender:
     def test_all_variables_substituted(self):
         c = _webhook()
         s = _sent(
-            alert_name="al", pipeline_name="pp", target_id="42",
-            target_name="ct-42", signal=Status.fail, url="http://x/job/1",
+            alert_name="al",
+            pipeline_name="pp",
+            target_id="42",
+            target_name="ct-42",
+            signal=Status.fail,
+            url="http://x/job/1",
         )
         result = c._render(
-            "$alert_name $pipeline_name $target_id $target_name $signal $url $triggered_at", s
+            "$alert_name $pipeline_name $target_id $target_name $signal $url $triggered_at",
+            s,
         )
         for expected in ("al", "pp", "42", "ct-42", "fail", "http://x/job/1"):
             assert expected in result
@@ -291,6 +310,7 @@ class TestRender:
 
 
 # ── RSSConnector ──────────────────────────────────────────────────────────────
+
 
 class TestRSSConnector:
     def test_creates_feed_file(self, tmp_path):
@@ -316,7 +336,10 @@ class TestRSSConnector:
     def test_item_link_is_alert_url(self, tmp_path):
         path = tmp_path / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent(url="http://host/job/123"))
-        assert ET.parse(path).getroot().find("channel/item/link").text == "http://host/job/123"
+        assert (
+            ET.parse(path).getroot().find("channel/item/link").text
+            == "http://host/job/123"
+        )
 
     def test_second_send_prepends_newest(self, tmp_path):
         path = tmp_path / "feed.xml"
@@ -336,10 +359,15 @@ class TestRSSConnector:
 
     def test_max_items_keeps_newest(self, tmp_path):
         path = tmp_path / "feed.xml"
-        c = RSSConnector(name="r", feed_path=path, max_items=2, title_template="$signal")
+        c = RSSConnector(
+            name="r", feed_path=path, max_items=2, title_template="$signal"
+        )
         for sig in (Status.ok, Status.warning, Status.fail):
             c.send(_sent(signal=sig))
-        titles = [i.find("title").text for i in ET.parse(path).getroot().findall("channel/item")]
+        titles = [
+            i.find("title").text
+            for i in ET.parse(path).getroot().findall("channel/item")
+        ]
         assert "ok" not in titles
 
     def test_creates_parent_dirs(self, tmp_path):
@@ -350,6 +378,7 @@ class TestRSSConnector:
 
 # ── WebhookConnector ──────────────────────────────────────────────────────────
 
+
 class TestWebhookConnector:
     def test_posts_to_url(self):
         c = _webhook(url="https://hooks.example.com/test")
@@ -359,7 +388,8 @@ class TestWebhookConnector:
 
     def test_body_is_rendered_json(self):
         c = WebhookConnector(
-            name="h", url="https://x.com",
+            name="h",
+            url="https://x.com",
             body_template='{"msg": "$signal on $pipeline_name"}',
         )
         with patch("httpx.post") as mock_post:
@@ -368,7 +398,8 @@ class TestWebhookConnector:
 
     def test_headers_forwarded(self):
         c = WebhookConnector(
-            name="h", url="https://x.com",
+            name="h",
+            url="https://x.com",
             headers={"Authorization": "Bearer token123"},
         )
         with patch("httpx.post") as mock_post:
@@ -382,6 +413,7 @@ class TestWebhookConnector:
 
 
 # ── DiscordConnector ──────────────────────────────────────────────────────────
+
 
 class TestDiscordConnector:
     def test_different_default_template_than_webhook(self):
@@ -403,7 +435,8 @@ class TestDiscordConnector:
 
     def test_inherits_webhook_headers(self):
         c = DiscordConnector(
-            name="dc", url="https://discord.com/x",
+            name="dc",
+            url="https://discord.com/x",
             headers={"X-Custom": "val"},
         )
         with patch("httpx.post") as mock_post:
@@ -413,10 +446,12 @@ class TestDiscordConnector:
 
 # ── Serialization roundtrip ───────────────────────────────────────────────────
 
+
 class TestAlertConnectorSerialization:
     def test_webhook_roundtrip(self):
         c = WebhookConnector(
-            name="my-hook", url="https://example.com",
+            name="my-hook",
+            url="https://example.com",
             headers={"X-Token": "abc"},
             body_template='{"text": "$signal"}',
         )
