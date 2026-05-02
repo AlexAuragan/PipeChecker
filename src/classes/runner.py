@@ -3,16 +3,17 @@ import time
 from abc import abstractmethod, ABC
 from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import override
+from typing import cast, override
 import src.classes.target as t
 import src.classes.pipeline as p
 import src.classes.results as r
-from src.classes import utils
+import src.classes.utils as utils
 from src.classes.enums import ExecMethod, CheckMethod, Status
 
 
 class Runner(ABC):
     def __init__(self, target: t.Target, pipeline: p.Pipeline):
+        super().__init__()
         self._target = target
         self._pipeline = pipeline
 
@@ -177,10 +178,10 @@ class RemoteLinuxRunner(Runner, ABC):
 
 
 class PCTRunner(RemoteLinuxRunner):
-    @override
     @property
+    @override
     def target(self) -> t.ProxmoxCT:
-        return self._target  # type: ignore
+        return cast(t.ProxmoxCT, self._target)
 
     @override
     def __init__(self, target: t.ProxmoxCT, pipeline: p.Pipeline):
@@ -194,10 +195,10 @@ class PCTRunner(RemoteLinuxRunner):
 
 
 class LinuxMachineRunner(RemoteLinuxRunner):
-    @override
     @property
+    @override
     def target(self) -> t.RemoteLinuxMachine:
-        return self._target  # type: ignore
+        return cast(t.RemoteLinuxMachine, self._target)
 
     @override
     def __init__(self, target: t.RemoteLinuxMachine, pipeline: p.Pipeline):

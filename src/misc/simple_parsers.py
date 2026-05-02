@@ -1,9 +1,10 @@
 """Simple text parsers for Proxmox CLI output formats."""
 
 import re
+from typing import Any
 
 
-def parse_table(output: str) -> list[dict]:
+def parse_table(output: str) -> list[dict[str, Any]]:
     """Parse a fixed-width columnar table (e.g. `pct list` output) into a list of dicts."""
     lines = output.strip().splitlines()
     header_line = lines[0]
@@ -23,7 +24,7 @@ def parse_table(output: str) -> list[dict]:
     return results
 
 
-def pct_config_parser(conf: str) -> dict:
+def pct_config_parser(conf: str) -> dict[str, Any]:
     """Extract key fields from a Proxmox CT config file (e.g. /etc/pve/lxc/<id>.conf)."""
 
     def _find(pattern: str):

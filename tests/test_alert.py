@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
@@ -21,7 +22,7 @@ from src.core import storage
 
 
 def _alert(name="test-alert", pipeline=None, on_signals=None) -> AlertConfig:
-    kwargs: dict = {"name": name}
+    kwargs: dict[str, Any] = {"name": name}
     if pipeline is not None:
         kwargs["pipeline"] = pipeline
     if on_signals is not None:
@@ -33,11 +34,11 @@ def _sent(
     alert_name="test-alert",
     pipeline_name="my-pipeline",
     target_id="100",
-    target_name="ct-100",
+    target_name: str | None = "ct-100",
     signal=Status.fail,
     url=None,
 ) -> SentAlert:
-    kwargs: dict = dict(
+    kwargs: dict[str, Any] = dict(
         alert_name=alert_name,
         pipeline_name=pipeline_name,
         target_id=target_id,
@@ -56,7 +57,7 @@ def _webhook(
 
 
 def _rss(name="my-rss", feed_path="/tmp/test-feed.xml", **kwargs) -> RSSConnector:
-    return RSSConnector(name=name, feed_path=feed_path, **kwargs)
+    return RSSConnector(name=name, feed_path=Path(feed_path), **kwargs)
 
 
 # ── AlertConfig ───────────────────────────────────────────────────────────────
@@ -240,6 +241,7 @@ class TestUpdateAlertConnector:
         storage.save_alert_connector(_webhook("h", url="https://old.com"))
         storage.update_alert_connector(_webhook("h", url="https://new.com"))
         [c] = storage.load_alert_connectors()
+        assert isinstance(c, WebhookConnector)
         assert c.url == "https://new.com"
 
     def test_unknown_name_raises(self):
@@ -251,8 +253,10 @@ class TestUpdateAlertConnector:
         storage.save_alert_connector(_webhook("b", url="https://b.com"))
         storage.update_alert_connector(_webhook("a", url="https://a-new.com"))
         connectors = {c.name: c for c in storage.load_alert_connectors()}
-        assert connectors["a"].url == "https://a-new.com"
-        assert connectors["b"].url == "https://b.com"
+        a, b = connectors["a"], connectors["b"]
+        assert isinstance(a, WebhookConnector) and isinstance(b, WebhookConnector)
+        assert a.url == "https://a-new.com"
+        assert b.url == "https://b.com"
 
 
 class TestDeleteAlertConnector:
@@ -331,15 +335,16 @@ class TestRSSConnector:
         RSSConnector(name="r", feed_path=path, title_template="TITLE-$signal").send(
             _sent(signal=Status.fail)
         )
-        assert ET.parse(path).getroot().find("channel/item/title").text == "TITLE-fail"
+        title_elem = ET.parse(path).getroot().find("channel/item/title")
+        assert title_elem is not None
+        assert title_elem.text == "TITLE-fail"
 
     def test_item_link_is_alert_url(self, tmp_path):
         path = tmp_path / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent(url="http://host/job/123"))
-        assert (
-            ET.parse(path).getroot().find("channel/item/link").text
-            == "http://host/job/123"
-        )
+        link_elem = ET.parse(path).getroot().find("channel/item/link")
+        assert link_elem is not None
+        assert link_elem.text == "http://host/job/123"
 
     def test_second_send_prepends_newest(self, tmp_path):
         path = tmp_path / "feed.xml"
@@ -347,8 +352,10 @@ class TestRSSConnector:
         c.send(_sent(signal=Status.warning))
         c.send(_sent(signal=Status.fail))
         items = ET.parse(path).getroot().findall("channel/item")
-        assert items[0].find("title").text == "fail"
-        assert items[1].find("title").text == "warning"
+        t0, t1 = items[0].find("title"), items[1].find("title")
+        assert t0 is not None and t1 is not None
+        assert t0.text == "fail"
+        assert t1.text == "warning"
 
     def test_max_items_enforced(self, tmp_path):
         path = tmp_path / "feed.xml"
@@ -365,8 +372,9 @@ class TestRSSConnector:
         for sig in (Status.ok, Status.warning, Status.fail):
             c.send(_sent(signal=sig))
         titles = [
-            i.find("title").text
+            e.text
             for i in ET.parse(path).getroot().findall("channel/item")
+            if (e := i.find("title")) is not None
         ]
         assert "ok" not in titles
 

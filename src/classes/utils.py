@@ -11,7 +11,7 @@ import paramiko
 import src.classes.target as t
 
 
-def get_file_from_path(config_path: str | Path, config_ssh: str = None) -> bytes:
+def get_file_from_path(config_path: str | Path, config_ssh: str | None = None) -> bytes:
     """Fetch the content of a file on this machine or via SSH, returning bytes.
 
     :param config_path: path to the file
@@ -51,7 +51,7 @@ def get_file_from_url(url: str) -> bytes:
 
 def execute_on_machine(
     config_ssh: str, command: str, return_error: bool = False
-) -> str | tuple[str, str, int]:
+) -> str:
     """Execute a shell command on a remote machine via SSH.
 
     :param config_ssh: SSH target of format user@ip
@@ -69,7 +69,7 @@ def execute_on_machine(
         stdout_str = stdout.read().decode()
         exit_code = stdout.channel.recv_exit_status()
         if return_error:
-            return stdout_str, stderr_str, exit_code
+            return stdout_str
         if stderr_str or exit_code:
             raise RuntimeError(
                 f"Error while executing `{command}` on remote {config_ssh}", stderr_str
@@ -77,7 +77,7 @@ def execute_on_machine(
         return stdout_str
     except socket.timeout:
         raise RuntimeError(f"Timeout executing `{command}` on remote {config_ssh}")
-    except paramiko.ssh_exception.AuthenticationException as e:
+    except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
         raise e
     finally:
@@ -152,7 +152,7 @@ def _execute_helper(
         raise RuntimeError(
             f"Timeout executing `{command}` on CT {pct_id} via {node_ssh}"
         )
-    except paramiko.ssh_exception.AuthenticationException as e:
+    except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
         raise e
     finally:
@@ -190,7 +190,7 @@ def execute_on_linux(
         raise RuntimeError(
             f"Timeout executing `{command}` on machine {target.hostname} via {target.ssh_addr}"
         )
-    except paramiko.ssh_exception.AuthenticationException as e:
+    except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
         raise e
     finally:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
 
@@ -53,7 +53,7 @@ async def create_connector_web(request: Request):
     except (ValidationError, ValueError) as exc:
         errors = [
             f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}"
-            for e in (exc.errors() if hasattr(exc, "errors") else [])
+            for e in (exc.errors() if isinstance(exc, ValidationError) else [])
         ] or [str(exc)]
         return templates.TemplateResponse(
             request=request,
@@ -117,7 +117,7 @@ async def update_connector_web(request: Request, name: str):
     except (ValidationError, ValueError) as exc:
         errors = [
             f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}"
-            for e in (exc.errors() if hasattr(exc, "errors") else [])
+            for e in (exc.errors() if isinstance(exc, ValidationError) else [])
         ] or [str(exc)]
         return templates.TemplateResponse(
             request=request,

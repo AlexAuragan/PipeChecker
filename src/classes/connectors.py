@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import yaml
 from pydantic import (
@@ -14,8 +14,8 @@ from pydantic import (
 )
 
 from src import config
-from src.classes import utils
-from src.classes import target
+import src.classes.utils as utils
+import src.classes.target as target
 from src.classes.enums import ConnectorType
 from src.misc.caddy_parser import parse_caddyfile
 from src.misc.simple_parsers import parse_table, pct_config_parser
@@ -23,6 +23,7 @@ from src.misc.simple_parsers import parse_table, pct_config_parser
 
 class Manager:
     def __init__(self, autoload: bool = True):
+        super().__init__()
         self._connectors: dict[str, Connector] = {}
         if not autoload:
             return
@@ -101,9 +102,9 @@ class Connector(BaseModel, ABC):
     @abstractmethod
     def single_init(
         self,
-        config_path: str | Path = None,
-        config_url: str = None,
-        config_ssh: str = None,
+        config_path: str | Path | None = None,
+        config_url: str | None = None,
+        config_ssh: str | None = None,
     ) -> list[target.Target]:
         """Fetch targets from one config source. Exactly one argument will be non-None."""
         pass
@@ -139,11 +140,9 @@ class Connector(BaseModel, ABC):
 
     @staticmethod
     def from_str(content: str) -> "Connector":
-        from src import classes
-
         data = yaml.safe_load(content)
         name, conf = next(iter(data.items()))
-        cls = classes.connectors[ConnectorType(conf.pop("type")).value]
+        cls = _TYPE_MAP[ConnectorType(conf.pop("type")).value]
         return cls.model_validate({"name": name, **conf})
 
 
@@ -153,9 +152,9 @@ class Caddy(Connector):
 
     def single_init(
         self,
-        config_path: str | Path = "",
-        config_url: str = None,
-        config_ssh: str = None,
+        config_path: str | Path | None = None,
+        config_url: str | None = None,
+        config_ssh: str | None = None,
     ) -> list[target.Target]:
         content: str
         if config_url:
@@ -183,10 +182,11 @@ class LinuxMachine(Connector):
 
     def single_init(
         self,
-        config_path: str | Path = None,
-        config_url: str = None,
-        config_ssh: str = None,
+        config_path: str | Path | None = None,
+        config_url: str | None = None,
+        config_ssh: str | None = None,
     ) -> list[target.Target]:
+        assert config_ssh is not None
         hostname = utils.execute_on_machine(config_ssh, "hostname").strip()
         user, ip = config_ssh.split("@")
         return [
@@ -212,10 +212,11 @@ class Proxmox(Connector):
 
     def single_init(
         self,
-        config_path: str | Path = None,
-        config_url: str = None,
-        config_ssh: str = None,
+        config_path: str | Path | None = None,
+        config_url: str | None = None,
+        config_ssh: str | None = None,
     ) -> list[target.Target]:
+        assert config_ssh is not None
         stdout = utils.execute_on_machine(config_ssh, "pct list")
         pct_list = parse_table(stdout)
         stdout = utils.execute_on_machine(config_ssh, "hostname")
@@ -255,3 +256,10 @@ class Proxmox(Connector):
                 )
             )
         return targets
+
+
+_TYPE_MAP: dict[str, type[Connector]] = {
+    ConnectorType.caddy.value: Caddy,
+    ConnectorType.linux_machine.value: LinuxMachine,
+    ConnectorType.proxmox.value: Proxmox,
+}

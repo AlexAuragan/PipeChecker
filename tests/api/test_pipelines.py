@@ -10,6 +10,8 @@ Fixture pipeline file (fk.yaml) contains two pipelines:
   - "File-keeper" : one step  (fk-installed)
 """
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -34,7 +36,7 @@ def client(api_key):
 # ---------------------------------------------------------------------------
 
 
-def _req(step_id: str, branch: int = 0) -> dict:
+def _req(step_id: str, branch: int = 0) -> dict[str, Any]:
     return {"step": step_id, "branch": branch}
 
 
@@ -43,8 +45,8 @@ def _step(
     exec_cmd="which bash",
     check_method="stdout_not_empty",
     requires=None,
-):
-    body = {"id": step_id, "exec": exec_cmd, "check_method": check_method}
+) -> dict[str, Any]:
+    body: dict[str, Any] = {"id": step_id, "exec": exec_cmd, "check_method": check_method}
     if requires:
         body["requires"] = requires
     return body

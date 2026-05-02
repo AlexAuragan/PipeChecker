@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.api.security import require_api_key
@@ -25,7 +27,7 @@ def create_alert(body: AlertConfig) -> AlertConfig:
 
 # /history must be declared before /{name} to avoid "history" being treated as a name
 @router.get("/history")
-def get_history(limit: int = 200) -> list[dict]:
+def get_history(limit: int = 200) -> list[dict[str, Any]]:
     return jobs.list_alert_history(limit=limit)
 
 

@@ -17,6 +17,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "basedpyright>=1.39.3",
     "pytest>=9.0.2",
 ]
 
@@ -25,6 +26,14 @@ packages = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.basedpyright]
+# Pydantic discriminated unions: Literal[X] overriding EnumType is intentional
+reportIncompatibleVariableOverride = "none"
+# Pydantic PrivateAttr stubs strip | None from annotations
+reportAssignmentType = "none"
+# BaseModel + ABC is standard for abstract Pydantic models
+reportUnsafeMultipleInheritance = "none"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

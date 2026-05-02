@@ -3,7 +3,7 @@
 """
 
 import asyncio
-from typing import Annotated, Union
+from typing import Annotated, Any, Union
 
 from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.params import Depends
@@ -31,7 +31,7 @@ class ConnectorPatch(BaseModel):
 
 class TargetResponse(BaseModel):
     id: str
-    conf: dict
+    conf: dict[str, Any]
 
 
 ## Routes
@@ -42,18 +42,18 @@ async def reload(request: Request):
 
 
 @router.get("", response_model=list[Connector])
-def list_connectors(manager: Manager = Depends(utils.get_manager)):
+def list_connectors(manager: utils.ManagerDep):
     return [connector for connector in manager]
 
 
 @router.get("/{name}", response_model=Connector)
-def get_connector(name: str, manager: Manager = Depends(utils.get_manager)):
+def get_connector(name: str, manager: utils.ManagerDep):
     return utils.get_connector_or_404(manager, name)
 
 
 @router.post("", response_model=Connector, status_code=status.HTTP_201_CREATED)
 def create_connector(
-    body: ConnectorBody, manager: Manager = Depends(utils.get_manager)
+    body: ConnectorBody, manager: utils.ManagerDep
 ):
     # Conflict check
     try:
@@ -71,7 +71,7 @@ def create_connector(
 
 @router.put("/{name}", response_model=Connector)
 def replace_connector(
-    name: str, body: ConnectorBody, manager: Manager = Depends(utils.get_manager)
+    name: str, body: ConnectorBody, manager: utils.ManagerDep
 ):
     utils.get_connector_or_404(manager, name)
     manager.remove(name)
@@ -82,7 +82,7 @@ def replace_connector(
 
 @router.patch("/{name}", response_model=Connector)
 def update_connector(
-    name: str, body: ConnectorPatch, manager: Manager = Depends(utils.get_manager)
+    name: str, body: ConnectorPatch, manager: utils.ManagerDep
 ):
     existing = utils.get_connector_or_404(manager, name)
 
@@ -110,14 +110,14 @@ def update_connector(
 
 
 @router.delete("/{name}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_connector(name: str, manager: Manager = Depends(utils.get_manager)):
+def delete_connector(name: str, manager: utils.ManagerDep):
     utils.get_connector_or_404(manager, name)
     manager.remove(name)
     save_manager(manager)
 
 
 @router.get("/{name}/targets", response_model=list[TargetResponse])
-def list_targets(name: str, manager: Manager = Depends(utils.get_manager)):
+def list_targets(name: str, manager: utils.ManagerDep):
     conn = utils.get_connector_or_404(manager, name)
     return [
         TargetResponse(id=str(target.id), conf=target.config) for target in conn.targets
@@ -125,7 +125,7 @@ def list_targets(name: str, manager: Manager = Depends(utils.get_manager)):
 
 
 @router.post("/{name}/discover", response_model=list[TargetResponse])
-def reload_targets(name: str, manager: Manager = Depends(utils.get_manager)):
+def reload_targets(name: str, manager: utils.ManagerDep):
     conn = utils.get_connector_or_404(manager, name)
     conn.load_targets()
     return [

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -26,7 +27,7 @@ def load_pipeline_config(
     return connectors, {p.name: p for p in pipes}
 
 
-def load_pipelines(group: str = None) -> dict[str, dict[str, pipeline.Pipeline]]:
+def load_pipelines(group: str | None = None) -> dict[str, dict[str, pipeline.Pipeline]]:
     """Load all pipeline config files, optionally filtered to a single group."""
     out = {}
     if group and "." in group:
@@ -51,7 +52,7 @@ def save_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
     group = group.split(".")[0]
     path = config.PIPELINE_FOLDER / f"{group}.yaml"
     if path.exists():
-        raw = yaml.safe_load(path.read_text())
+        raw: dict[str, Any] = yaml.safe_load(path.read_text())
         raw.setdefault("pipelines", [])
         raw.setdefault("connectors", [])
     else:

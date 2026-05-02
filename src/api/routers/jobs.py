@@ -6,9 +6,8 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.params import Depends, Query
 from pydantic import BaseModel
 
-from src.api.security import require_api_key
 from src.api import utils
-from src.classes.connectors import Manager
+from src.api.security import require_api_key
 from src.core import jobs
 from src.core.database import JobSource
 
@@ -60,7 +59,7 @@ class JobCreatedResponse(BaseModel):
 def start_pipeline(
     name: str,
     background_tasks: BackgroundTasks,
-    manager: Manager = Depends(utils.get_manager),
+    manager: utils.ManagerDep,
     group: Annotated[str | None, Query()] = None,
 ):
     utils.get_pipeline_or_404(name, group)
@@ -95,7 +94,7 @@ def cancel_job(job_id: UUID):
 def retry_job(
     job_id: UUID,
     background_tasks: BackgroundTasks,
-    manager: Manager = Depends(utils.get_manager),
+    manager: utils.ManagerDep,
 ):
     pipeline_name = jobs.retry_job(job_id)
     if pipeline_name is None:

@@ -80,6 +80,7 @@ def verify_session_cookie(value: str | None) -> str | None:
 
 class RequiresLoginException(Exception):
     def __init__(self, next_url: str = "/"):
+        super().__init__(next_url)
         self.next_url = next_url
 
 

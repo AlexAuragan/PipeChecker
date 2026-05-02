@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from pydantic import BaseModel, field_validator, model_validator, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+
 from src.classes.connectors import Manager
-from src.classes.enums import ExecMethod, CheckMethod, RunnerType, Status
+from src.classes.enums import CheckMethod, ExecMethod, RunnerType, Status
 
 
 class StepRequirement(BaseModel):
@@ -64,7 +65,7 @@ class PipelineStep(BaseModel):
                 )
             seen_pairs.add(pair)
 
-        if self.check_method == CheckMethod.finish_in_less_than:
+        if self.check_method == CheckMethod.finish_in_less_than and self.check_patterns is not None:
             self.check_patterns = [float(x) for x in self.check_patterns]
 
         return self

@@ -45,10 +45,15 @@ def new_script_page(request: Request):
 @router.post("/new", response_class=HTMLResponse)
 async def create_script(request: Request):
     form = await request.form()
-    subfolder = (form.get("subfolder") or "").strip().strip("/")
-    filename = (form.get("filename") or "").strip()
-    ext = form.get("ext") or ".sh"
-    content = form.get("content") or ""
+
+    def _str(key: str) -> str:
+        v = form.get(key)
+        return v if isinstance(v, str) else ""
+
+    subfolder = _str("subfolder").strip().strip("/")
+    filename = _str("filename").strip()
+    ext = _str("ext") or ".sh"
+    content = _str("content")
 
     errors = []
     if not filename:

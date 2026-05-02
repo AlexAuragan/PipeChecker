@@ -5,6 +5,7 @@ the list of configured sites (used by the Caddy connector).
 """
 
 import re
+from typing import Any
 
 
 def tokenize(text: str) -> list[str]:
@@ -21,7 +22,7 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
-def parse_block(tokens: list[str], pos: int) -> tuple[list, int]:
+def parse_block(tokens: list[str], pos: int) -> tuple[list[Any], int]:
     """Recursively parse a Caddyfile block starting at pos, returning (items, new_pos)."""
     items = []
     while pos < len(tokens) and tokens[pos] != "}":
@@ -52,7 +53,7 @@ def parse_block(tokens: list[str], pos: int) -> tuple[list, int]:
     return items, pos
 
 
-def parse_caddyfile(text: str) -> dict:
+def parse_caddyfile(text: str) -> dict[str, Any]:
     """Parse a full Caddyfile and return a dict of {site_address: block_children}."""
     tokens = tokenize(text)
     result, _ = parse_block(tokens, 0)

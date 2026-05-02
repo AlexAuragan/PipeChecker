@@ -10,16 +10,16 @@ run.run_pipeline is patched to a no-op for every test — no SSH, no targets,
 empty results list.
 """
 
-import pytest
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-from src.api.api import app
 from src.api import utils
+from src.api.api import app
 from src.classes.connectors import Manager
 from src.core.database import Job, JobStatus
 
@@ -47,8 +47,8 @@ def db_engine(monkeypatch):
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
-    import src.core.jobs as jobs_module
     import src.core.database as db_module
+    import src.core.jobs as jobs_module
 
     monkeypatch.setattr(jobs_module, "engine", engine)
     monkeypatch.setattr(db_module, "engine", engine)
@@ -79,7 +79,7 @@ def clear_cancelled():
 # ---------------------------------------------------------------------------
 
 
-def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status=type[JobStatus]) -> UUID:
+def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status:JobStatus = JobStatus.pending) -> UUID:
     """Insert a job directly into the DB, bypassing the API."""
     with Session(db_engine) as session:
         job = Job(pipeline_name=pipeline_name, status=status)
@@ -195,7 +195,9 @@ class TestCancelJob:
         job_id = _insert_job(db_engine, status=JobStatus.pending)
         client.post(f"{PREFIX}/{job_id}/cancel")
         with Session(db_engine) as session:
-            assert session.get(Job, job_id).status == JobStatus.cancelled
+            job = session.get(Job, job_id)
+            assert job is not None
+            assert job.status == JobStatus.cancelled
 
     def test_cancel_completed_job_returns_409(self, client):
         job_id = _start_job(client)  # ends as completed

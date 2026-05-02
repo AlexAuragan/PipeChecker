@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from src.api import utils
 from src.api.web_auth import require_web_auth
 from src.api.website.utils import compute_columns, build_edges, templates
-from src.classes.connectors import Manager
 from src.core import jobs
 from src.core.database import JobSource
 
@@ -27,7 +26,7 @@ router = APIRouter(tags=["job"], dependencies=[Depends(require_web_auth)])
 def web_start_job(
     name: str,
     background_tasks: BackgroundTasks,
-    manager: Manager = Depends(utils.get_manager),
+    manager: utils.ManagerDep,
 ):
     utils.get_pipeline_or_404(name, None)
     job_id = jobs.create_job(pipeline_name=name, source=JobSource.manual)
@@ -39,7 +38,7 @@ def web_start_job(
 def web_retry_job(
     job_id: UUID,
     background_tasks: BackgroundTasks,
-    manager: Manager = Depends(utils.get_manager),
+    manager: utils.ManagerDep,
 ):
     pipeline_name = jobs.retry_job(job_id)
     if pipeline_name is None:

@@ -1,17 +1,19 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from ipaddress import IPv4Address
+from typing import Any
 
 
 @dataclass
 class Target(ABC):
+    @property
     @abstractmethod
     def id(self) -> str:
         pass
 
     @property
     @abstractmethod
-    def config(self) -> dict:
+    def config(self) -> dict[str, Any]:
         pass
 
     @property
@@ -29,7 +31,7 @@ class Url(Target):
         return self.url
 
     @property
-    def config(self) -> dict:
+    def config(self) -> dict[str, Any]:
         return {"url": self.url}
 
     @property
@@ -53,11 +55,11 @@ class ProxmoxCT(Target):
         return f"root@{self.node_ip}"
 
     @property
-    def id(self):
-        return self.pct_id
+    def id(self) -> str:
+        return str(self.pct_id)
 
     @property
-    def config(self) -> dict:
+    def config(self) -> dict[str, Any]:
         return {
             "pct_id": self.pct_id,
             "pct_ip": str(self.pct_ip),
@@ -89,7 +91,7 @@ class RemoteLinuxMachine(Target):
         return f"{self.ssh_addr}:{self.exec_dir}"
 
     @property
-    def config(self) -> dict:
+    def config(self) -> dict[str, Any]:
         return {
             "machine_ip": self.machine_ip,
             "user": self.user,

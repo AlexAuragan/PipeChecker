@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from string import Template
-from typing import Literal
+from typing import Literal, cast
 from xml.etree import ElementTree as ET
 
 import yaml
@@ -12,7 +12,7 @@ from src.classes.enums import AlertConnectorType
 
 
 class AlertConnector(BaseModel, ABC):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
     name: str
     type: AlertConnectorType
 
@@ -71,6 +71,7 @@ class RSSConnector(AlertConnector):
             ET.SubElement(ch, "description").text = "PipeChecker alert notifications"
 
         channel = root.find("channel")
+        assert channel is not None
         item = ET.Element("item")
         ET.SubElement(item, "title").text = self._render(self.title_template, alert)
         ET.SubElement(item, "description").text = self._render(
@@ -101,6 +102,7 @@ class WebhookConnector(AlertConnector):
 
     def send(self, alert: SentAlert) -> None:
         import json
+
         import httpx
 
         body = json.loads(self._render(self.body_template, alert))

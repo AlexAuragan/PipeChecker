@@ -1,8 +1,10 @@
 from datetime import datetime, timezone, timedelta
+from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session, select, delete as sql_delete
+from sqlmodel import Session, col, select, delete as sql_delete
 
+from src.classes.alert import SentAlert
 from src.classes.results import PipelineResult
 from src.core.database import (
     ArchivedRun,
@@ -25,10 +27,11 @@ def is_cancelled(job_id: UUID) -> bool:
 
 
 def create_job(
-    uuid: UUID = None, pipeline_name: str = None, source: JobSource = JobSource.manual
+    uuid: UUID | None = None, pipeline_name: str | None = None, source: JobSource = JobSource.manual
 ) -> UUID:
     with Session(engine) as session:
-        job = Job(pipeline_name=pipeline_name, uuid=uuid, source=source)
+        extra: dict[str, Any] = {"id": uuid} if uuid is not None else {}
+        job = Job(pipeline_name=pipeline_name, source=source, **extra)
         session.add(job)
         session.commit()
         session.refresh(job)
@@ -89,7 +92,7 @@ def write_pipeline_result(job_id: UUID, result: PipelineResult) -> None:
         session.commit()
 
 
-def get_job(job_id: UUID) -> dict | None:
+def get_job(job_id: UUID) -> dict[str, Any] | None:
     with Session(engine) as session:
         job = session.get(Job, job_id)
         if job is None:
@@ -155,7 +158,7 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
 
         stale = session.exec(
             select(Job).where(
-                Job.status.in_([JobStatus.running, JobStatus.pending]),
+                col(Job.status).in_([JobStatus.running, JobStatus.pending]),
                 Job.created_at < cutoff,
             )
         ).all()
@@ -176,7 +179,7 @@ def archive_old_jobs() -> None:
         old_jobs = session.exec(
             select(Job).where(
                 Job.created_at < cutoff,
-                Job.status.in_(
+                col(Job.status).in_(
                     [JobStatus.completed, JobStatus.failed, JobStatus.crashed]
                 ),
             )
@@ -190,7 +193,7 @@ def archive_old_jobs() -> None:
                         ArchivedRun.pipeline_name == pr.pipeline_name,
                         ArchivedRun.target_id == pr.target_id,
                     )
-                    .order_by(ArchivedRun.ran_at.desc())
+                    .order_by(col(ArchivedRun.ran_at).desc())
                 ).first()
 
                 changed = last is None or last.status != pr.status
@@ -276,7 +279,7 @@ def delete_cancelled_jobs() -> None:
     _cancelled.difference_update(ids)
 
 
-def record_sent_alert(alert: "SentAlert") -> None:  # type: ignore[name-defined]
+def record_sent_alert(alert: SentAlert) -> None:
     with Session(engine) as session:
         session.add(
             SentAlertRecord(
@@ -292,11 +295,11 @@ def record_sent_alert(alert: "SentAlert") -> None:  # type: ignore[name-defined]
         session.commit()
 
 
-def list_alert_history(limit: int = 200) -> list[dict]:
+def list_alert_history(limit: int = 200) -> list[dict[str, Any]]:
     with Session(engine) as session:
         records = session.exec(
             select(SentAlertRecord)
-            .order_by(SentAlertRecord.triggered_at.desc())
+            .order_by(col(SentAlertRecord.triggered_at).desc())
             .limit(limit)
         ).all()
         return [
@@ -329,9 +332,9 @@ _SIGNAL_SEVERITY: dict[str, int] = {
 }
 
 
-def list_jobs() -> list[dict]:
+def list_jobs() -> list[dict[str, Any]]:
     with Session(engine) as session:
-        all_jobs = session.exec(select(Job).order_by(Job.created_at.desc())).all()
+        all_jobs = session.exec(select(Job).order_by(col(Job.created_at).desc())).all()
         result = []
         for job in all_jobs:
             signals = [pr.status for pr in job.results]

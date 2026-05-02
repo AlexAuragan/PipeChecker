@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from starlette.templating import Jinja2Templates
 
-from src.classes import connectors, CONNECTOR_RUNNER_MAP
+from src.classes import CONNECTOR_RUNNER_MAP, connectors
 from src.classes.connectors import Connector, ConnectorType
-from src.classes.pipeline import Pipeline, CheckMethod
+from src.classes.pipeline import CheckMethod, Pipeline, PipelineStep
 from src.config import ALLOWED_SCRIPT_EXTENSIONS, SCRIPTS_FOLDER
 from src.core import storage
 
@@ -26,48 +27,41 @@ def list_scripts() -> list[str]:
 ## Form helpers
 
 
-def form_base_ctx() -> dict:
+def form_base_ctx() -> dict[str, Any]:
     return {
         "check_methods": list(CheckMethod),
         "available_scripts": list_scripts(),
     }
 
 
-def available_connectors() -> list[dict]:
+def available_connectors() -> list[dict[str, Any]]:
     return [
         {"name": c.name, "runner_type": CONNECTOR_RUNNER_MAP[c.type].value}
         for c in storage.load_manager()
     ]
 
 
-def get_step_branches(step) -> list[dict]:
+def get_step_branches(step: dict[str, Any] | PipelineStep | None) -> list[dict[str, Any]]:
     """Return [{index, name, signal}] for every branch of a step (dict or model)."""
     if step is None:
         return [
             {"index": 0, "name": "pass", "signal": "ok"},
             {"index": 1, "name": "fail", "signal": "fail"},
         ]
-    patterns = (
-        step.get("check_patterns") if isinstance(step, dict) else step.check_patterns
-    )
-    if isinstance(patterns, list) and len(patterns) == 0:
-        patterns = None
-    raw_branches = list(
-        (step.get("branches") if isinstance(step, dict) else step.branches) or []
-    )
+    if isinstance(step, dict):
+        step = PipelineStep.model_validate(step)
+
+    patterns = step.check_patterns or None
+    raw_branches = step.branches
 
     def _name(i: int, default: str) -> str:
         if i < len(raw_branches):
-            b = raw_branches[i]
-            n = (b.get("name") if isinstance(b, dict) else b.name) or ""
-            return n.strip() or default
+            return raw_branches[i].name.strip() or default
         return default
 
     def _signal(i: int, default: str) -> str:
         if i < len(raw_branches):
-            b = raw_branches[i]
-            s = (b.get("signal") if isinstance(b, dict) else b.signal) or default
-            return s.value if hasattr(s, "value") else str(s)
+            return raw_branches[i].signal.value
         return default
 
     if patterns is None:
@@ -90,7 +84,7 @@ def get_step_branches(step) -> list[dict]:
     return branches
 
 
-def _parse_requires_entry(v: str) -> dict:
+def _parse_requires_entry(v: str) -> dict[str, Any]:
     if ":" in v:
         step_id, branch = v.rsplit(":", 1)
         try:
@@ -109,7 +103,7 @@ def _parse_check_patterns(form, i: int) -> list[str] | None:
     return patterns if patterns else None
 
 
-def _parse_branches(form, i: int) -> list[dict]:
+def _parse_branches(form, i: int) -> list[dict[str, Any]]:
     names = [v.strip() for k, v in form.multi_items() if k == f"step_branch_names_{i}"]
     signals = [
         v.strip() for k, v in form.multi_items() if k == f"step_branch_signals_{i}"
@@ -117,7 +111,7 @@ def _parse_branches(form, i: int) -> list[dict]:
     return [{"name": n, "signal": s or "ok"} for n, s in zip(names, signals)]
 
 
-def steps_from_form(form) -> list[tuple[int, dict]]:
+def steps_from_form(form) -> list[tuple[int, dict[str, Any]]]:
     """Re-inflate step rows from raw POST form data (for error re-render)."""
     indices = sorted(
         {int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")}
@@ -221,7 +215,7 @@ def parse_connector_form(form) -> Connector:
     )
 
 
-def connector_form_data(form, name_override: str | None = None) -> dict:
+def connector_form_data(form, name_override: str | None = None) -> dict[str, Any]:
     return {
         "name": name_override or form.get("name", ""),
         "type": form.get("type", ConnectorType.proxmox.value),
@@ -254,7 +248,7 @@ def compute_columns(steps):
         depth(s.id)
 
     num_cols = max(depths.values()) + 1 if depths else 1
-    columns: list[list] = [[] for _ in range(num_cols)]
+    columns: list[list[Any]] = [[] for _ in range(num_cols)]
     for s in steps:
         columns[depths[s.id]].append(s)
     return columns
@@ -322,19 +316,19 @@ _SIGNAL_BADGE = {
 }
 
 
-def step_class(step_result: dict) -> str:
+def step_class(step_result: dict[str, Any]) -> str:
     if step_result["skipped"]:
         return "status-skipped"
     return _SIGNAL_CLASS.get(step_result.get("signal", "ok"), "status-red")
 
 
-def step_badge(step_result: dict) -> str:
+def step_badge(step_result: dict[str, Any]) -> str:
     if step_result["skipped"]:
         return "badge-gray"
     return _SIGNAL_BADGE.get(step_result.get("signal", "ok"), "badge-red")
 
 
-def step_text(step_result: dict) -> str:
+def step_text(step_result: dict[str, Any]) -> str:
     if step_result["skipped"]:
         return "skipped"
     signal = step_result.get("signal", "ok")
@@ -378,7 +372,7 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 templates.env.filters["tojson"] = lambda v: json.dumps(v)
-templates.env.globals.update(
+cast(dict[str, Any], templates.env.globals).update(
     status_badge=status_badge,
     signal_group=signal_group,
     signal_badge=signal_badge,

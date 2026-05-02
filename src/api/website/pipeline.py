@@ -20,7 +20,7 @@ router = APIRouter(tags=["pipeline"], dependencies=[Depends(require_web_auth)])
 
 def _validation_errors(exc: ValidationError | ValueError) -> list[str]:
     """Format a Pydantic or plain ValueError into a list of human-readable strings."""
-    if hasattr(exc, "errors"):
+    if isinstance(exc, ValidationError):
         return [
             f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()
         ]

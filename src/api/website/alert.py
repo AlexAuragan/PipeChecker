@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import ValidationError
@@ -28,7 +30,7 @@ def _parse_alert_form(form) -> AlertConfig:
     )
 
 
-def _form_data_from_form(form, name_override: str | None = None) -> dict:
+def _form_data_from_form(form, name_override: str | None = None) -> dict[str, Any]:
     on_signals = []
     for v in (v for k, v in form.multi_items() if k == "on_signals"):
         try:
@@ -52,8 +54,8 @@ def _validation_errors(exc: ValidationError | ValueError | KeyError) -> list[str
 
 
 def _form_ctx(
-    form_data: dict, editing: bool = False, errors: list | None = None
-) -> dict:
+    form_data: dict[str, Any], editing: bool = False, errors: list[str] | None = None
+) -> dict[str, Any]:
     return {
         "editing": editing,
         "form_data": form_data,

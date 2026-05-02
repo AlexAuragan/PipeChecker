@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from src.api import utils
@@ -17,7 +19,7 @@ def dashboard(request: Request):
     all_jobs = jobs.list_jobs()
 
     # first entry per pipeline (list_jobs returns desc by created_at)
-    latest_jobs: dict[str, dict] = {}
+    latest_jobs: dict[str, dict[str, Any]] = {}
     for job in all_jobs:
         latest_jobs.setdefault(job["pipeline_name"], job)
 

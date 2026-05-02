@@ -3,11 +3,12 @@ import os
 import sys
 import traceback
 from contextlib import asynccontextmanager
+from typing import Annotated
 from uuid import UUID
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from watchfiles import awatch
 
 from src import config
@@ -123,6 +124,7 @@ def get_manager(request: Request) -> Manager:
         raise HTTPException(status_code=503, detail="Still loading connectors")
     return request.app.state.manager
 
+ManagerDep = Annotated[Manager, Depends(get_manager)]
 
 async def watch_config(app: FastAPI):
     """Background task: reload the manager whenever the connector config file changes."""
