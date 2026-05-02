@@ -16,6 +16,12 @@ Connector → Targets → Pipeline → Steps → Results
 - A **pipeline** defines an ordered sequence of steps with dependency resolution.
 - Each **step** runs a command on the target, validates the output, and optionally runs a fix command if the check fails.
 
+## Screenshots
+
+![Main page](assets/main_page.png)
+
+![Run page](assets/run_page.png)
+
 ## Connectors
 
 | Connector | What it discovers                                                  |
