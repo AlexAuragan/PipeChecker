@@ -141,7 +141,7 @@
 
   {# ── Webhook / Discord settings ───────────────────────────────────────── #}
   <div id="section-webhook" class="form-card">
-    <h2>WEBHOOK SETTINGS</h2>
+    <h2 id="webhook-section-title">WEBHOOK SETTINGS</h2>
 
     <div class="field">
       <label>URL <span style="color:var(--r)">*</span></label>
@@ -192,6 +192,7 @@ function onTypeChange() {
     : CURRENT_TYPE;
   document.getElementById('section-rss').style.display     = (t === 'rss') ? '' : 'none';
   document.getElementById('section-webhook').style.display = (t !== 'rss') ? '' : 'none';
+  document.getElementById('webhook-section-title').textContent = (t === 'discord') ? 'DISCORD SETTINGS' : 'WEBHOOK SETTINGS';
 }
 
 function addHeader() {
