@@ -42,7 +42,7 @@ class AlertConnector(BaseModel, ABC):
     def to_str(self) -> str:
         data = self.model_dump(mode="json")
         name = data.pop("name")
-        data = {k: v for k, v in data.items() if v}
+        data = {k: v for k, v in data.items() if v is not None}
         return yaml.dump({name: data}, default_flow_style=False).strip()
 
 
