@@ -27,7 +27,7 @@ class Url(Target):
     url: str
 
     @property
-    def id(self):
+    def id(self) -> str:
         return self.url
 
     @property
@@ -50,7 +50,7 @@ class ProxmoxCT(Target):
     ostype: str
 
     @property
-    def ssh_addr(self):
+    def ssh_addr(self) -> str:
         # TODO maybe have a way to change the user for ssh. I don't think it can be done via `pct list`
         return f"root@{self.node_ip}"
 
@@ -71,7 +71,7 @@ class ProxmoxCT(Target):
         }
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f"[{self.pct_id}] {self.pct_name}"
 
 
@@ -83,11 +83,11 @@ class RemoteLinuxMachine(Target):
     hostname: str
 
     @property
-    def ssh_addr(self):
+    def ssh_addr(self) -> str:
         return f"{self.user}@{self.machine_ip}"
 
     @property
-    def id(self):
+    def id(self) -> str:
         return f"{self.ssh_addr}:{self.exec_dir}"
 
     @property
@@ -99,5 +99,5 @@ class RemoteLinuxMachine(Target):
         }
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f"{self.hostname} ({self.user})"

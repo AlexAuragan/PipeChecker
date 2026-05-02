@@ -1,7 +1,9 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
+from starlette.datastructures import FormData
 from starlette.templating import Jinja2Templates
 
 from src.classes import CONNECTOR_RUNNER_MAP, connectors
@@ -35,10 +37,7 @@ def form_base_ctx() -> dict[str, Any]:
 
 
 def available_connectors() -> list[dict[str, Any]]:
-    return [
-        {"name": c.name, "runner_type": CONNECTOR_RUNNER_MAP[c.type].value}
-        for c in storage.load_manager()
-    ]
+    return [{"name": c.name, "runner_type": CONNECTOR_RUNNER_MAP[c.type].value} for c in storage.load_manager()]
 
 
 def get_step_branches(step: dict[str, Any] | PipelineStep | None) -> list[dict[str, Any]]:
@@ -71,8 +70,7 @@ def get_step_branches(step: dict[str, Any] | PipelineStep | None) -> list[dict[s
         ]
 
     branches = [
-        {"index": i, "name": _name(i, str(patterns[i])), "signal": _signal(i, "ok")}
-        for i in range(len(patterns))
+        {"index": i, "name": _name(i, str(patterns[i])), "signal": _signal(i, "ok")} for i in range(len(patterns))
     ]
     branches.append(
         {
@@ -82,6 +80,11 @@ def get_step_branches(step: dict[str, Any] | PipelineStep | None) -> list[dict[s
         }
     )
     return branches
+
+
+def _fget(form: FormData, key: str, default: str = "") -> str:
+    v = form.get(key)
+    return v if isinstance(v, str) else default
 
 
 def _parse_requires_entry(v: str) -> dict[str, Any]:
@@ -94,34 +97,28 @@ def _parse_requires_entry(v: str) -> dict[str, Any]:
     return {"step": v, "branch": 0}
 
 
-def _parse_check_patterns(form, i: int) -> list[str] | None:
+def _parse_check_patterns(form: FormData, i: int) -> list[str] | None:
     patterns = [
-        v.strip()
-        for k, v in form.multi_items()
-        if k == f"step_check_patterns_{i}" and v.strip()
+        v.strip() for k, v in form.multi_items() if k == f"step_check_patterns_{i}" and isinstance(v, str) and v.strip()
     ]
     return patterns if patterns else None
 
 
-def _parse_branches(form, i: int) -> list[dict[str, Any]]:
-    names = [v.strip() for k, v in form.multi_items() if k == f"step_branch_names_{i}"]
-    signals = [
-        v.strip() for k, v in form.multi_items() if k == f"step_branch_signals_{i}"
-    ]
+def _parse_branches(form: FormData, i: int) -> list[dict[str, Any]]:
+    names = [v.strip() for k, v in form.multi_items() if k == f"step_branch_names_{i}" and isinstance(v, str)]
+    signals = [v.strip() for k, v in form.multi_items() if k == f"step_branch_signals_{i}" and isinstance(v, str)]
     return [{"name": n, "signal": s or "ok"} for n, s in zip(names, signals)]
 
 
-def steps_from_form(form) -> list[tuple[int, dict[str, Any]]]:
+def steps_from_form(form: FormData) -> list[tuple[int, dict[str, Any]]]:
     """Re-inflate step rows from raw POST form data (for error re-render)."""
-    indices = sorted(
-        {int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")}
-    )
+    indices = sorted({int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")})
     rows = []
     for i in indices:
         exec_method = form.get(f"step_exec_method_{i}", "command")
         exec_command = form.get(f"step_exec_command_{i}", "")
         exec_script = form.get(f"step_exec_script_{i}", "")
-        requires_raw = [v for k, v in form.multi_items() if k == f"step_requires_{i}"]
+        requires_raw = [v for k, v in form.multi_items() if k == f"step_requires_{i}" and isinstance(v, str)]
         rows.append(
             (
                 i,
@@ -141,34 +138,30 @@ def steps_from_form(form) -> list[tuple[int, dict[str, Any]]]:
     return rows
 
 
-def step_ids_from_form(form) -> list[str]:
-    indices = sorted(
-        {int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")}
-    )
-    return [sid for i in indices if (sid := (form.get(f"step_id_{i}") or "").strip())]
+def step_ids_from_form(form: FormData) -> list[str]:
+    indices = sorted({int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")})
+    return [sid for i in indices if (sid := _fget(form, f"step_id_{i}").strip())]
 
 
-def parse_pipeline_form(form) -> tuple[str, Pipeline]:
-    group = (form.get("group") or "default").strip() or "default"
-    name = (form.get("name") or "").strip()
-    cron = (form.get("cron") or "").strip()
-    runner_val = (form.get("runner") or "").strip()
-    connector_list = [v for k, v in form.multi_items() if k == "connectors"]
+def parse_pipeline_form(form: FormData) -> tuple[str, Pipeline]:
+    group = _fget(form, "group", "default").strip() or "default"
+    name = _fget(form, "name").strip()
+    cron = _fget(form, "cron").strip()
+    runner_val = _fget(form, "runner").strip()
+    connector_list = [v for k, v in form.multi_items() if k == "connectors" and isinstance(v, str)]
 
-    indices = sorted(
-        {int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")}
-    )
+    indices = sorted({int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")})
     steps = []
     for i in indices:
-        sid = (form.get(f"step_id_{i}") or "").strip()
+        sid = _fget(form, f"step_id_{i}").strip()
         if not sid:
             continue
-        exec_method = (form.get(f"step_exec_method_{i}") or "command").strip()
+        exec_method = (_fget(form, f"step_exec_method_{i}") or "command").strip()
         if exec_method == "script":
-            exec_val = (form.get(f"step_exec_script_{i}") or "").strip()
+            exec_val = _fget(form, f"step_exec_script_{i}").strip()
         else:
-            exec_val = (form.get(f"step_exec_command_{i}") or "").strip()
-        requires_raw = [v for k, v in form.multi_items() if k == f"step_requires_{i}"]
+            exec_val = _fget(form, f"step_exec_command_{i}").strip()
+        requires_raw = [v for k, v in form.multi_items() if k == f"step_requires_{i}" and isinstance(v, str)]
         steps.append(
             {
                 "id": sid,
@@ -191,18 +184,12 @@ def parse_pipeline_form(form) -> tuple[str, Pipeline]:
     )
 
 
-def parse_connector_form(form) -> Connector:
-    name = (form.get("name") or "").strip()
-    type_val = (form.get("type") or "").strip()
-    config_ssh = [
-        v.strip() for k, v in form.multi_items() if k == "config_ssh" and v.strip()
-    ]
-    config_url = [
-        v.strip() for k, v in form.multi_items() if k == "config_url" and v.strip()
-    ]
-    config_path = [
-        v.strip() for k, v in form.multi_items() if k == "config_path" and v.strip()
-    ]
+def parse_connector_form(form: FormData) -> Connector:
+    name = _fget(form, "name").strip()
+    type_val = _fget(form, "type").strip()
+    config_ssh = [v.strip() for k, v in form.multi_items() if k == "config_ssh" and isinstance(v, str) and v.strip()]
+    config_url = [v.strip() for k, v in form.multi_items() if k == "config_url" and isinstance(v, str) and v.strip()]
+    config_path = [v.strip() for k, v in form.multi_items() if k == "config_path" and isinstance(v, str) and v.strip()]
     connector_type = ConnectorType(type_val)
     cls = connectors[connector_type.value]
     return cls.model_validate(
@@ -215,20 +202,20 @@ def parse_connector_form(form) -> Connector:
     )
 
 
-def connector_form_data(form, name_override: str | None = None) -> dict[str, Any]:
+def connector_form_data(form: FormData, name_override: str | None = None) -> dict[str, Any]:
     return {
-        "name": name_override or form.get("name", ""),
-        "type": form.get("type", ConnectorType.proxmox.value),
-        "config_ssh": [v for k, v in form.multi_items() if k == "config_ssh"],
-        "config_path": [v for k, v in form.multi_items() if k == "config_path"],
-        "config_url": [v for k, v in form.multi_items() if k == "config_url"],
+        "name": name_override or _fget(form, "name"),
+        "type": _fget(form, "type", ConnectorType.proxmox.value),
+        "config_ssh": [v for k, v in form.multi_items() if k == "config_ssh" and isinstance(v, str)],
+        "config_path": [v for k, v in form.multi_items() if k == "config_path" and isinstance(v, str)],
+        "config_url": [v for k, v in form.multi_items() if k == "config_url" and isinstance(v, str)],
     }
 
 
 ## Other helpers
 
 
-def compute_columns(steps):
+def compute_columns(steps: list[PipelineStep]) -> list[list[PipelineStep]]:
     """Assign each step to a column by longest-path depth in the dependency graph."""
     step_map = {s.id: s for s in steps}
     depths: dict[str, int] = {}
@@ -237,11 +224,7 @@ def compute_columns(steps):
         if sid in depths:
             return depths[sid]
         step = step_map[sid]
-        depths[sid] = (
-            0
-            if not step.requires
-            else max(depth(req.step) for req in step.requires) + 1
-        )
+        depths[sid] = 0 if not step.requires else max(depth(req.step) for req in step.requires) + 1
         return depths[sid]
 
     for s in steps:
@@ -254,12 +237,8 @@ def compute_columns(steps):
     return columns
 
 
-def build_edges(steps) -> str:
-    edges = [
-        {"from": req.step, "branch": req.branch, "to": step.id}
-        for step in steps
-        for req in step.requires
-    ]
+def build_edges(steps: list[PipelineStep]) -> str:
+    edges = [{"from": req.step, "branch": req.branch, "to": step.id} for step in steps for req in step.requires]
     return json.dumps(edges)
 
 
@@ -273,13 +252,13 @@ _SIGNAL_GROUP = {
 }
 
 
-def signal_group(signal) -> str:
+def signal_group(signal: Any) -> str:
     """Map a pipeline signal to a color group (green/orange/red) for filtering."""
     s = signal.value if hasattr(signal, "value") else str(signal)
     return _SIGNAL_GROUP.get(s, "green")
 
 
-def status_badge(status) -> str:
+def status_badge(status: Any) -> str:
     """Map a job/target status value to a CSS badge class."""
     s = status.value if hasattr(status, "value") else str(status)
     return {
@@ -338,20 +317,18 @@ def step_text(step_result: dict[str, Any]) -> str:
     return "pass" if branch == 0 else f"branch {branch}"
 
 
-def source_badge(source) -> str:
+def source_badge(source: Any) -> str:
     s = source.value if hasattr(source, "value") else str(source)
-    return {"manual": "badge-gray", "cron": "badge-blue", "event": "badge-orange"}.get(
-        s, "badge-gray"
-    )
+    return {"manual": "badge-gray", "cron": "badge-blue", "event": "badge-orange"}.get(s, "badge-gray")
 
 
-def signal_badge(signal) -> str:
+def signal_badge(signal: Any) -> str:
     """Map a signal string or Status enum → CSS badge class."""
     s = signal.value if hasattr(signal, "value") else str(signal)
     return _SIGNAL_BADGE.get(s, "badge-gray")
 
 
-def fmt_datetime(dt) -> str:
+def fmt_datetime(dt: datetime | None) -> str:
     if dt is None:
         return "—"
     return dt.strftime("%Y-%m-%d %H:%M")

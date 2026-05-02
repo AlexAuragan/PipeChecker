@@ -1,11 +1,12 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.datastructures import FormData
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 
 from src.api.web_auth import require_web_auth
-from src.api.website.utils import templates
+from src.api.website.utils import _fget, templates
 from src.classes.alert import AlertConfig
 from src.classes.enums import Status
 from src.core import jobs, storage
@@ -15,11 +16,11 @@ router = APIRouter(tags=["alert"], dependencies=[Depends(require_web_auth)])
 _ALL_SIGNALS = list(Status)
 
 
-def _parse_alert_form(form) -> AlertConfig:
-    name = (form.get("name") or "").strip()
-    pipeline = (form.get("pipeline") or "").strip() or None
-    on_signals_raw = [v for k, v in form.multi_items() if k == "on_signals"]
-    connector = (form.get("connector") or "").strip() or None
+def _parse_alert_form(form: FormData) -> AlertConfig:
+    name = _fget(form, "name").strip()
+    pipeline = _fget(form, "pipeline").strip() or None
+    on_signals_raw = [v for k, v in form.multi_items() if k == "on_signals" and isinstance(v, str)]
+    connector = _fget(form, "connector").strip() or None
     return AlertConfig.model_validate(
         {
             "name": name,
@@ -30,7 +31,7 @@ def _parse_alert_form(form) -> AlertConfig:
     )
 
 
-def _form_data_from_form(form, name_override: str | None = None) -> dict[str, Any]:
+def _form_data_from_form(form: FormData, name_override: str | None = None) -> dict[str, Any]:
     on_signals = []
     for v in (v for k, v in form.multi_items() if k == "on_signals"):
         try:
@@ -38,24 +39,20 @@ def _form_data_from_form(form, name_override: str | None = None) -> dict[str, An
         except ValueError:
             pass
     return {
-        "name": name_override or (form.get("name") or "").strip(),
-        "pipeline": (form.get("pipeline") or "").strip() or None,
+        "name": name_override or _fget(form, "name").strip(),
+        "pipeline": _fget(form, "pipeline").strip() or None,
         "on_signals": on_signals,
-        "connector": (form.get("connector") or "").strip() or None,
+        "connector": _fget(form, "connector").strip() or None,
     }
 
 
 def _validation_errors(exc: ValidationError | ValueError | KeyError) -> list[str]:
     if isinstance(exc, ValidationError):
-        return [
-            f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()
-        ]
+        return [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()]
     return [str(exc)]
 
 
-def _form_ctx(
-    form_data: dict[str, Any], editing: bool = False, errors: list[str] | None = None
-) -> dict[str, Any]:
+def _form_ctx(form_data: dict[str, Any], editing: bool = False, errors: list[str] | None = None) -> dict[str, Any]:
     return {
         "editing": editing,
         "form_data": form_data,
@@ -71,7 +68,7 @@ def _available_pipeline_names() -> list[str]:
 
 
 @router.get("", response_class=HTMLResponse)
-def alerts_page(request: Request):
+def alerts_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="alerts.html",
@@ -84,7 +81,7 @@ def alerts_page(request: Request):
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_alert_page(request: Request, pipeline: str = ""):
+def new_alert_page(request: Request, pipeline: str = "") -> HTMLResponse:
     form_data = {
         "name": "",
         "pipeline": pipeline or None,
@@ -102,7 +99,7 @@ def new_alert_page(request: Request, pipeline: str = ""):
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def create_alert_route(request: Request):
+async def create_alert_route(request: Request) -> Response:
     form = await request.form()
     try:
         storage.save_alert(_parse_alert_form(form))
@@ -120,13 +117,13 @@ async def create_alert_route(request: Request):
 
 
 @router.post("/history/clear", response_class=HTMLResponse)
-async def clear_history_route(request: Request):
+async def clear_history_route(request: Request) -> RedirectResponse:
     jobs.clear_alert_history()
     return RedirectResponse("/alert", status_code=303)
 
 
 @router.get("/{name}/edit", response_class=HTMLResponse)
-def edit_alert_page(request: Request, name: str):
+def edit_alert_page(request: Request, name: str) -> Response:
     alerts = {a.name: a for a in storage.load_alerts()}
     if name not in alerts:
         return RedirectResponse("/alert", status_code=303)
@@ -148,7 +145,7 @@ def edit_alert_page(request: Request, name: str):
 
 
 @router.post("/{name}/edit", response_class=HTMLResponse)
-async def update_alert_route(request: Request, name: str):
+async def update_alert_route(request: Request, name: str) -> Response:
     form = await request.form()
     try:
         alert = _parse_alert_form(form)
@@ -179,7 +176,7 @@ async def update_alert_route(request: Request, name: str):
 
 
 @router.post("/{name}/delete", response_class=HTMLResponse)
-async def delete_alert_route(request: Request, name: str):
+async def delete_alert_route(request: Request, name: str) -> RedirectResponse:
     try:
         storage.delete_alert(name)
     except KeyError:

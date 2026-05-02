@@ -1,5 +1,5 @@
 from fastapi import Request, APIRouter, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 
 from src.api import utils
@@ -21,14 +21,12 @@ router = APIRouter(tags=["pipeline"], dependencies=[Depends(require_web_auth)])
 def _validation_errors(exc: ValidationError | ValueError) -> list[str]:
     """Format a Pydantic or plain ValueError into a list of human-readable strings."""
     if isinstance(exc, ValidationError):
-        return [
-            f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()
-        ]
+        return [f"{' → '.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()]
     return [str(exc)]
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_pipeline_page(request: Request):
+def new_pipeline_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="pipeline_form.html",
@@ -52,7 +50,7 @@ def new_pipeline_page(request: Request):
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def create_pipeline(request: Request):
+async def create_pipeline(request: Request) -> Response:
     form = await request.form()
     try:
         group, pipeline = parse_pipeline_form(form)
@@ -72,9 +70,7 @@ async def create_pipeline(request: Request):
                     "group": form.get("group", "default"),
                     "cron": form.get("cron", ""),
                     "runner": form.get("runner", ""),
-                    "connectors": [
-                        v for k, v in form.multi_items() if k == "connectors"
-                    ],
+                    "connectors": [v for k, v in form.multi_items() if k == "connectors"],
                 },
                 "steps": steps,
                 "all_step_ids": [s["id"] for _, s in steps if s["id"]],
@@ -87,7 +83,7 @@ async def create_pipeline(request: Request):
 
 
 @router.get("/{name}/edit", response_class=HTMLResponse)
-def edit_pipeline_page(request: Request, name: str):
+def edit_pipeline_page(request: Request, name: str) -> HTMLResponse:
     pipeline, group = utils.get_pipeline_or_404(name, None)
     steps = [
         (
@@ -96,25 +92,17 @@ def edit_pipeline_page(request: Request, name: str):
                 "id": step.id,
                 "exec": step.exec,
                 "exec_method": step.exec_method.value,
-                "exec_command": (
-                    step.exec if step.exec_method.value == "command" else ""
-                ),
+                "exec_command": (step.exec if step.exec_method.value == "command" else ""),
                 "exec_script": step.exec if step.exec_method.value == "script" else "",
                 "check_method": step.check_method.value,
                 "check_patterns": step.check_patterns or [],
-                "branches": [
-                    {"name": b.name, "signal": b.signal.value} for b in step.branches
-                ],
-                "requires": [
-                    {"step": r.step, "branch": r.branch} for r in step.requires
-                ],
+                "branches": [{"name": b.name, "signal": b.signal.value} for b in step.branches],
+                "requires": [{"step": r.step, "branch": r.branch} for r in step.requires],
             },
         )
         for i, step in enumerate(pipeline.pipeline)
     ]
-    pipeline_alerts = [
-        a for a in _storage.load_alerts() if a.pipeline == name or a.pipeline is None
-    ]
+    pipeline_alerts = [a for a in _storage.load_alerts() if a.pipeline == name or a.pipeline is None]
     return templates.TemplateResponse(
         request=request,
         name="pipeline_form.html",
@@ -139,18 +127,14 @@ def edit_pipeline_page(request: Request, name: str):
 
 
 @router.post("/{name}/edit", response_class=HTMLResponse)
-async def update_pipeline_route(request: Request, name: str):
+async def update_pipeline_route(request: Request, name: str) -> Response:
     form = await request.form()
     try:
         group, pipeline = parse_pipeline_form(form)
     except (ValidationError, ValueError) as exc:
         errors = _validation_errors(exc)
         steps = steps_from_form(form)
-        pipeline_alerts = [
-            a
-            for a in _storage.load_alerts()
-            if a.pipeline == name or a.pipeline is None
-        ]
+        pipeline_alerts = [a for a in _storage.load_alerts() if a.pipeline == name or a.pipeline is None]
         return templates.TemplateResponse(
             request=request,
             name="pipeline_form.html",
@@ -164,9 +148,7 @@ async def update_pipeline_route(request: Request, name: str):
                     "group": form.get("group", "default"),
                     "cron": form.get("cron", ""),
                     "runner": form.get("runner", ""),
-                    "connectors": [
-                        v for k, v in form.multi_items() if k == "connectors"
-                    ],
+                    "connectors": [v for k, v in form.multi_items() if k == "connectors"],
                 },
                 "steps": steps,
                 "all_step_ids": [s["id"] for _, s in steps if s["id"]],
@@ -180,7 +162,7 @@ async def update_pipeline_route(request: Request, name: str):
 
 
 @router.get("/{name}", response_class=HTMLResponse)
-def pipeline_page(request: Request, name: str):
+def pipeline_page(request: Request, name: str) -> HTMLResponse:
     pipeline, group = utils.get_pipeline_or_404(name, None)
     columns = compute_columns(pipeline.pipeline)
     edges = build_edges(pipeline.pipeline)
@@ -201,7 +183,7 @@ def pipeline_page(request: Request, name: str):
 
 
 @router.post("/{name}/delete", response_class=HTMLResponse)
-async def delete_pipeline_route(request: Request, name: str):
+async def delete_pipeline_route(request: Request, name: str) -> RedirectResponse:
     pipeline, group = utils.get_pipeline_or_404(name, None)
     _storage.delete_pipeline(name, group)
     return RedirectResponse("/", status_code=303)

@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
 
-PROJECT_ROOT = (
-    Path(__file__).resolve().parents[1]
-)  # src/config.py → src/ → project root
+PROJECT_ROOT = Path(__file__).resolve().parents[1]  # src/config.py → src/ → project root
 SAVE_FOLDER = PROJECT_ROOT / "save"  # TODO replace with xdg and shit
 CONNECTOR_FILE = SAVE_FOLDER / "connectors.yaml"
 PIPELINE_FOLDER = SAVE_FOLDER / "pipelines"

@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from collections.abc import ItemsView, Iterator, KeysView, ValuesView
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import (
@@ -36,28 +37,28 @@ class Manager:
             connector = Connector.from_str(yaml.dump({name: conf}))
             self.add(connector)
 
-    def add(self, connector: Connector):
+    def add(self, connector: Connector) -> None:
         self._connectors[connector.name] = connector
 
     def get(self, name: str) -> Connector:
         return self._connectors[name]
 
-    def remove(self, name: str):
+    def remove(self, name: str) -> None:
         del self._connectors[name]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Connector]:
         return iter(self._connectors.values())
 
     def __contains__(self, name: str) -> bool:
         return name in self._connectors
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         return self._connectors.keys()
 
-    def values(self):
+    def values(self) -> ValuesView[Connector]:
         return self._connectors.values()
 
-    def items(self):
+    def items(self) -> ItemsView[str, Connector]:
         return self._connectors.items()
 
     def load_targets(self) -> None:
@@ -86,7 +87,7 @@ class Connector(BaseModel, ABC):
 
     @field_validator("config_path", "config_url", "config_ssh", mode="before")
     @classmethod
-    def coerce_to_list(cls, v):
+    def coerce_to_list(cls, v: Any) -> list[str]:
         if v is None:
             return []
         return [v] if isinstance(v, str) else list(v)
@@ -109,30 +110,24 @@ class Connector(BaseModel, ABC):
         """Fetch targets from one config source. Exactly one argument will be non-None."""
         pass
 
-    def load_targets(self):
+    def load_targets(self) -> None:
         self._targets: list[target.Target] = []
-        for cp, cu, cs in zip_longest(
-            self.config_path, self.config_url, self.config_ssh
-        ):
-            self._targets += self.single_init(
-                config_path=cp, config_url=cu, config_ssh=cs
-            )
+        for cp, cu, cs in zip_longest(self.config_path, self.config_url, self.config_ssh):
+            self._targets += self.single_init(config_path=cp, config_url=cu, config_ssh=cs)
 
     @property
     def is_loaded(self) -> bool:
         return self._targets is not None
 
     @property
-    def targets(self):
+    def targets(self) -> list[target.Target]:
         if self._load_error is not None:
-            raise RuntimeError(
-                f"Connector '{self.name}' failed to load targets: {self._load_error}"
-            )
+            raise RuntimeError(f"Connector '{self.name}' failed to load targets: {self._load_error}")
         if self._targets is None:
             self.load_targets()
         return self._targets
 
-    def to_str(self):
+    def to_str(self) -> str:
         data = self.model_dump(mode="json")
         name = data.pop("name")
         data = {k: v for k, v in data.items() if v}
@@ -174,7 +169,7 @@ class LinuxMachine(Connector):
 
     @model_validator(mode="before")
     @classmethod
-    def ignore_unused_configs(cls, data):
+    def ignore_unused_configs(cls, data: Any) -> Any:
         if isinstance(data, dict):
             data["config_path"] = []
             data["config_url"] = []
@@ -204,7 +199,7 @@ class Proxmox(Connector):
 
     @model_validator(mode="before")
     @classmethod
-    def ignore_unused_configs(cls, data):
+    def ignore_unused_configs(cls, data: Any) -> Any:
         if isinstance(data, dict):
             data["config_path"] = []
             data["config_url"] = []
@@ -225,8 +220,7 @@ class Proxmox(Connector):
         # Grab all the CT config by cat-ing the confing, faster than running pct info N times
         pct_ids = [pct["VMID"] for pct in pct_list]
         cat_cmd = " && ".join(
-            f'printf "%s\\0" "{pct_id}" && cat /etc/pve/lxc/{pct_id}.conf && printf "\\0"'
-            for pct_id in pct_ids
+            f'printf "%s\\0" "{pct_id}" && cat /etc/pve/lxc/{pct_id}.conf && printf "\\0"' for pct_id in pct_ids
         )
         stdout = utils.execute_on_machine(config_ssh, cat_cmd)
 

@@ -5,6 +5,7 @@ import secrets
 import shutil
 import subprocess
 import textwrap
+from argparse import Namespace
 
 
 def _hash_key(key: str, salt: bytes) -> str:
@@ -12,7 +13,7 @@ def _hash_key(key: str, salt: bytes) -> str:
     return f"{salt.hex()}:{dk.hex()}"
 
 
-def cmd_generate_key(_args):
+def cmd_generate_key(_args: Namespace) -> None:
     key = "pc_" + secrets.token_urlsafe(32)
     salt = os.urandom(16)
     hashed = _hash_key(key, salt)
@@ -23,7 +24,7 @@ def cmd_generate_key(_args):
     print(f"  export PIPECHECKER_API_KEY_HASH='{hashed}'")
 
 
-def cmd_generate_web_password(args):
+def cmd_generate_web_password(args: Namespace) -> None:
     password = args.password or secrets.token_urlsafe(20)
     salt = os.urandom(16)
     hashed = _hash_key(password, salt)
@@ -41,7 +42,7 @@ def cmd_generate_web_password(args):
     print(f"  export PIPECHECKER_WEB_SECRET='{web_secret}'")
 
 
-def cmd_setup(args):
+def cmd_setup(args: Namespace) -> None:
     project_dir = os.path.abspath(args.dir or os.getcwd())
     env_path = os.path.join(project_dir, ".env")
     service_name = "pipechecker"
@@ -92,16 +93,12 @@ def cmd_setup(args):
 
     if not has_systemd:
         print("\n⚠ systemd not found — skipping service installation.")
-        print(
-            f"  To run manually: cd {project_dir} && uv run fastapi run src/api/api.py"
-        )
+        print(f"  To run manually: cd {project_dir} && uv run fastapi run src/api/api.py")
         return
 
     if os.geteuid() != 0:
         print("\n⚠ Not running as root — skipping systemd service installation.")
-        print(
-            f"  Re-run with sudo to install the service, or create {service_path} manually."
-        )
+        print(f"  Re-run with sudo to install the service, or create {service_path} manually.")
         return
 
     service_content = textwrap.dedent(f"""\
@@ -141,20 +138,14 @@ def main():
     parser = argparse.ArgumentParser(prog="pipechecker", description="PipeChecker CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser(
-        "generate-key", help="Generate a new API key and its storable hash"
-    )
+    subparsers.add_parser("generate-key", help="Generate a new API key and its storable hash")
 
     web_pw_parser = subparsers.add_parser(
         "generate-web-password",
         help="Generate web UI credentials (username + password hash + signing secret)",
     )
-    web_pw_parser.add_argument(
-        "--username", default="admin", help="Username (default: admin)"
-    )
-    web_pw_parser.add_argument(
-        "--password", default=None, help="Password (auto-generated if omitted)"
-    )
+    web_pw_parser.add_argument("--username", default="admin", help="Username (default: admin)")
+    web_pw_parser.add_argument("--password", default=None, help="Password (auto-generated if omitted)")
 
     setup_parser = subparsers.add_parser(
         "setup",
@@ -165,9 +156,7 @@ def main():
         default=None,
         help="Project directory (default: current working directory)",
     )
-    setup_parser.add_argument(
-        "--port", default=8000, type=int, help="Port to listen on (default: 8000)"
-    )
+    setup_parser.add_argument("--port", default=8000, type=int, help="Port to listen on (default: 8000)")
 
     args = parser.parse_args()
 

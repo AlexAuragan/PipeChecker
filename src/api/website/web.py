@@ -14,7 +14,7 @@ router = APIRouter(tags=["web"], dependencies=[Depends(require_web_auth)])
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(request: Request):
+def dashboard(request: Request) -> HTMLResponse:
     all_pipelines = utils.load_all_pipelines()
     all_jobs = jobs.list_jobs()
 
@@ -36,7 +36,7 @@ def dashboard(request: Request):
 
 
 @router.get("/step-row", response_class=HTMLResponse)
-def step_row_fragment(request: Request, index: int = 0, steps: str = ""):
+def step_row_fragment(request: Request, index: int = 0, steps: str = "") -> HTMLResponse:
     all_step_ids = [s.strip() for s in steps.split(",") if s.strip()]
     return templates.TemplateResponse(
         request=request,

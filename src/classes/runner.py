@@ -19,10 +19,7 @@ class Runner(ABC):
 
     @property
     def execution_graph(self) -> dict[str, set[str]]:
-        return {
-            step.id: {req.step for req in step.requires}
-            for step in self.pipeline.pipeline
-        }
+        return {step.id: {req.step for req in step.requires} for step in self.pipeline.pipeline}
 
     @property
     def target(self) -> t.Target:
@@ -70,9 +67,7 @@ class RemoteLinuxRunner(Runner, ABC):
             case ExecMethod.script:
                 from src.config import SCRIPTS_FOLDER
 
-                stdout, stderr, exit_code, duration = self._exec_script(
-                    SCRIPTS_FOLDER / step.exec
-                )
+                stdout, stderr, exit_code, duration = self._exec_script(SCRIPTS_FOLDER / step.exec)
             case _:
                 raise ValueError(f"Unrecognized {step.exec_method}")
 
@@ -86,9 +81,7 @@ class RemoteLinuxRunner(Runner, ABC):
                 case CheckMethod.stdout_not_empty:
                     branch = 0 if stdout else 1
                 case _:
-                    raise ValueError(
-                        f"{step.check_method} not recognized as a binary CheckMethod"
-                    )
+                    raise ValueError(f"{step.check_method} not recognized as a binary CheckMethod")
         else:
             # Pattern-based: branch i = patterns[i] matched, branch len(patterns) = no match
             branch = len(step.check_patterns)
@@ -107,9 +100,7 @@ class RemoteLinuxRunner(Runner, ABC):
                             branch = i
                             break
                     case _:
-                        raise ValueError(
-                            f"{step.check_method} not recognized as a pattern CheckMethod"
-                        )
+                        raise ValueError(f"{step.check_method} not recognized as a pattern CheckMethod")
 
         return stdout, stderr, branch, duration
 
@@ -140,12 +131,9 @@ class RemoteLinuxRunner(Runner, ABC):
         while sorter.is_active():
             for step_id in sorter.get_ready():
                 step = steps_by_id[step_id]
-                relevant_reqs = [
-                    req for req in step.requires if req.step in results_by_id
-                ]
+                relevant_reqs = [req for req in step.requires if req.step in results_by_id]
                 should_skip = relevant_reqs and not any(
-                    results_by_id[req.step].branch == req.branch
-                    for req in relevant_reqs
+                    results_by_id[req.step].branch == req.branch for req in relevant_reqs
                 )
                 if should_skip:
                     res = self._skip_step(step)
@@ -165,9 +153,7 @@ class RemoteLinuxRunner(Runner, ABC):
                         )
                 results_by_id[step_id] = res
                 sorter.done(step_id)
-        pipes_results = {
-            step.id: results_by_id[step.id] for step in self.pipeline.pipeline
-        }
+        pipes_results = {step.id: results_by_id[step.id] for step in self.pipeline.pipeline}
         end = time.time()
         return r.PipelineResult(
             target=self.target,

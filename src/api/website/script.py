@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 
 from src.api.web_auth import require_web_auth
 from src.api.website.utils import list_scripts, templates
@@ -11,14 +11,14 @@ router = APIRouter(tags=["scripts"], dependencies=[Depends(require_web_auth)])
 
 
 @router.get("/content")
-def script_content(path: str):
+def script_content(path: str) -> PlainTextResponse:
     if path not in list_scripts():
         raise HTTPException(status_code=404, detail="Script not found")
     return PlainTextResponse((SCRIPTS_FOLDER / path).read_text())
 
 
 @router.get("", response_class=HTMLResponse)
-def scripts_page(request: Request):
+def scripts_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="scripts.html",
@@ -30,7 +30,7 @@ def scripts_page(request: Request):
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_script_page(request: Request):
+def new_script_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="script_form.html",
@@ -43,7 +43,7 @@ def new_script_page(request: Request):
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def create_script(request: Request):
+async def create_script(request: Request) -> Response:
     form = await request.form()
 
     def _str(key: str) -> str:

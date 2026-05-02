@@ -74,9 +74,7 @@ def update_pipeline(pipe: pipeline.Pipeline, group: str) -> None:
     path = config.PIPELINE_FOLDER / f"{group}.yaml"
     raw = yaml.safe_load(path.read_text())
     pipe_dict = pipe.model_dump(mode="json", exclude={"connectors"})
-    raw["pipelines"] = [
-        pipe_dict if p["name"] == pipe.name else p for p in raw["pipelines"]
-    ]
+    raw["pipelines"] = [pipe_dict if p["name"] == pipe.name else p for p in raw["pipelines"]]
     with open(path, "w") as f:
         yaml.dump(raw, f, default_flow_style=False, allow_unicode=True)
 
@@ -111,10 +109,7 @@ def load_manager() -> Manager:
 def load_alerts() -> list[AlertConfig]:
     if not config.ALERT_FILE.exists():
         return []
-    return [
-        AlertConfig.model_validate(a)
-        for a in yaml.safe_load(config.ALERT_FILE.read_text()) or []
-    ]
+    return [AlertConfig.model_validate(a) for a in yaml.safe_load(config.ALERT_FILE.read_text()) or []]
 
 
 def save_alert(alert: AlertConfig) -> None:
@@ -156,9 +151,7 @@ def load_alert_connectors() -> list[AlertConnector]:
     if not config.ALERT_CONNECTOR_FILE.exists():
         return []
     data = yaml.safe_load(config.ALERT_CONNECTOR_FILE.read_text()) or {}
-    return [
-        AlertConnector.from_str(yaml.dump({name: conf})) for name, conf in data.items()
-    ]
+    return [AlertConnector.from_str(yaml.dump({name: conf})) for name, conf in data.items()]
 
 
 def save_alert_connector(connector: AlertConnector) -> None:

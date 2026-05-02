@@ -11,9 +11,7 @@ from src.api.security import require_api_key
 from src.core import jobs
 from src.core.database import JobSource
 
-router = APIRouter(
-    prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(require_api_key)]
-)
+router = APIRouter(prefix="/jobs", tags=["jobs", "runs"], dependencies=[Depends(require_api_key)])
 
 
 class StepResultResponse(BaseModel):

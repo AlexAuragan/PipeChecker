@@ -14,9 +14,7 @@ from src.api import utils
 from src.classes.connectors import Manager, ConnectorType, Proxmox, Caddy, Connector
 from src.core.storage import save_manager
 
-router = APIRouter(
-    prefix="/connectors", tags=["connectors"], dependencies=[Depends(require_api_key)]
-)
+router = APIRouter(prefix="/connectors", tags=["connectors"], dependencies=[Depends(require_api_key)])
 
 ## Schema
 ConnectorBody = Annotated[Union[Proxmox, Caddy], Field(discriminator="type")]
@@ -52,9 +50,7 @@ def get_connector(name: str, manager: utils.ManagerDep):
 
 
 @router.post("", response_model=Connector, status_code=status.HTTP_201_CREATED)
-def create_connector(
-    body: ConnectorBody, manager: utils.ManagerDep
-):
+def create_connector(body: ConnectorBody, manager: utils.ManagerDep):
     # Conflict check
     try:
         manager.get(body.name)
@@ -70,9 +66,7 @@ def create_connector(
 
 
 @router.put("/{name}", response_model=Connector)
-def replace_connector(
-    name: str, body: ConnectorBody, manager: utils.ManagerDep
-):
+def replace_connector(name: str, body: ConnectorBody, manager: utils.ManagerDep):
     utils.get_connector_or_404(manager, name)
     manager.remove(name)
     manager.add(body)
@@ -81,9 +75,7 @@ def replace_connector(
 
 
 @router.patch("/{name}", response_model=Connector)
-def update_connector(
-    name: str, body: ConnectorPatch, manager: utils.ManagerDep
-):
+def update_connector(name: str, body: ConnectorPatch, manager: utils.ManagerDep):
     existing = utils.get_connector_or_404(manager, name)
 
     # merge existing and update
@@ -119,15 +111,11 @@ def delete_connector(name: str, manager: utils.ManagerDep):
 @router.get("/{name}/targets", response_model=list[TargetResponse])
 def list_targets(name: str, manager: utils.ManagerDep):
     conn = utils.get_connector_or_404(manager, name)
-    return [
-        TargetResponse(id=str(target.id), conf=target.config) for target in conn.targets
-    ]
+    return [TargetResponse(id=str(target.id), conf=target.config) for target in conn.targets]
 
 
 @router.post("/{name}/discover", response_model=list[TargetResponse])
 def reload_targets(name: str, manager: utils.ManagerDep):
     conn = utils.get_connector_or_404(manager, name)
     conn.load_targets()
-    return [
-        TargetResponse(id=str(target.id), conf=target.config) for target in conn.targets
-    ]
+    return [TargetResponse(id=str(target.id), conf=target.config) for target in conn.targets]

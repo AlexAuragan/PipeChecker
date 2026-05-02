@@ -10,9 +10,7 @@ from src.classes import pipeline as p
 from src.classes.pipeline import CheckMethod
 from src.core import storage
 
-router = APIRouter(
-    prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(require_api_key)]
-)
+router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(require_api_key)])
 
 
 ## Schema
@@ -44,9 +42,7 @@ def get_pipeline(name: str, group: Annotated[str | None, Query()] = None):
 
 
 @router.post("", response_model=p.Pipeline, status_code=status.HTTP_201_CREATED)
-def create_pipeline(
-    request: Request, body: p.Pipeline, group: Annotated[str | None, Query()] = None
-):
+def create_pipeline(request: Request, body: p.Pipeline, group: Annotated[str | None, Query()] = None):
     try:
         get_pipeline_or_404(body.name, group)
         raise HTTPException(
@@ -67,9 +63,7 @@ def create_pipeline(
 
 
 @router.put("/{name}", response_model=p.Pipeline)
-def replace_pipeline(
-    name: str, body: p.Pipeline, group: Annotated[str | None, Query()] = None
-):
+def replace_pipeline(name: str, body: p.Pipeline, group: Annotated[str | None, Query()] = None):
     pipe, group = get_pipeline_or_404(name, group)
     if body.name != name:
         raise HTTPException(status_code=400, detail="Body name must match path name.")
@@ -94,18 +88,14 @@ def list_steps(name: str, group: Annotated[str | None, Query()] = None):
 
 
 @router.post("/{name}/steps", response_model=p.Pipeline)
-def add_step(
-    name: str, body: p.PipelineStep, group: Annotated[str | None, Query()] = None
-):
+def add_step(name: str, body: p.PipelineStep, group: Annotated[str | None, Query()] = None):
     pipe, group = get_pipeline_or_404(name, group)
     assert isinstance(pipe, p.Pipeline)
     curr_ids = [step.id for step in pipe.pipeline]
     if body.id in curr_ids:
         raise HTTPException(status_code=422, detail="Step id already in pipeline")
     if any(req.step not in curr_ids for req in body.requires):
-        raise HTTPException(
-            status_code=422, detail="Step requires a non existing step id"
-        )
+        raise HTTPException(status_code=422, detail="Step requires a non existing step id")
     try:
         updated = p.Pipeline(
             name=pipe.name,
@@ -133,13 +123,9 @@ def edit_step(
     step = next((s for s in pipe.pipeline if s.id == step_id), None)
     curr_ids = [step.id for step in pipe.pipeline]
     if step is None:
-        raise HTTPException(
-            status_code=404, detail=f"Step '{step_id}' not found in pipeline {name}."
-        )
+        raise HTTPException(status_code=404, detail=f"Step '{step_id}' not found in pipeline {name}.")
     if any(req.step not in curr_ids for req in body.requires):
-        raise HTTPException(
-            status_code=422, detail="Step requires a non existing step id"
-        )
+        raise HTTPException(status_code=422, detail="Step requires a non existing step id")
     patched = step.model_copy(update=body.model_dump(exclude_none=True))
     new_steps = [patched if step.id == step_id else step for step in pipe.pipeline]
     try:

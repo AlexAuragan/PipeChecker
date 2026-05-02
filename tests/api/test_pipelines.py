@@ -10,6 +10,7 @@ Fixture pipeline file (fk.yaml) contains two pipelines:
   - "File-keeper" : one step  (fk-installed)
 """
 
+from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -26,7 +27,7 @@ PREFIX = "/api/v1/pipelines"
 
 
 @pytest.fixture()
-def client(api_key):
+def client(api_key: str) -> Generator[TestClient, None, None]:
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
         yield c
 
@@ -41,10 +42,10 @@ def _req(step_id: str, branch: int = 0) -> dict[str, Any]:
 
 
 def _step(
-    step_id="new-step",
-    exec_cmd="which bash",
-    check_method="stdout_not_empty",
-    requires=None,
+    step_id: str = "new-step",
+    exec_cmd: str = "which bash",
+    check_method: str = "stdout_not_empty",
+    requires: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {"id": step_id, "exec": exec_cmd, "check_method": check_method}
     if requires:
@@ -52,7 +53,12 @@ def _step(
     return body
 
 
-def _pipeline(name="my-pipe", steps=None, connectors=None, runner="proxmox_ct"):
+def _pipeline(
+    name: str = "my-pipe",
+    steps: list[dict[str, Any]] | None = None,
+    connectors: list[str] | None = None,
+    runner: str = "proxmox_ct",
+) -> dict[str, Any]:
     return {
         "name": name,
         "pipeline": steps or [_step()],
@@ -68,17 +74,17 @@ def _pipeline(name="my-pipe", steps=None, connectors=None, runner="proxmox_ct"):
 
 
 class TestListPipelines:
-    def test_returns_list(self, client):
+    def test_returns_list(self, client: TestClient) -> None:
         r = client.get(PREFIX)
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
-    def test_fixture_pipelines_present(self, client):
+    def test_fixture_pipelines_present(self, client: TestClient) -> None:
         r = client.get(PREFIX)
         names = {p["name"] for p in r.json()}
         assert {"curl", "File-keeper"}.issubset(names)
 
-    def test_response_shape(self, client):
+    def test_response_shape(self, client: TestClient) -> None:
         r = client.get(PREFIX)
         item = r.json()[0]
         assert "name" in item
@@ -92,16 +98,16 @@ class TestListPipelines:
 
 
 class TestGetPipeline:
-    def test_found(self, client):
+    def test_found(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/curl")
         assert r.status_code == 200
         assert r.json()["name"] == "curl"
 
-    def test_not_found(self, client):
+    def test_not_found(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/nonexistent")
         assert r.status_code == 404
 
-    def test_response_has_steps(self, client):
+    def test_response_has_steps(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/curl")
         assert len(r.json()["pipeline"]) == 1
         step = r.json()["pipeline"][0]
@@ -114,33 +120,33 @@ class TestGetPipeline:
 
 
 class TestCreatePipeline:
-    def test_create(self, client):
+    def test_create(self, client: TestClient) -> None:
         body = _pipeline("fresh-pipe")
         r = client.post(PREFIX, json=body)
         assert r.status_code == 201
         assert r.json()["name"] == "fresh-pipe"
 
-    def test_create_appears_in_list(self, client):
+    def test_create_appears_in_list(self, client: TestClient) -> None:
         client.post(PREFIX, json=_pipeline("listed-pipe"))
         r = client.get(PREFIX)
         names = {p["name"] for p in r.json()}
         assert "listed-pipe" in names
 
-    def test_conflict(self, client):
+    def test_conflict(self, client: TestClient) -> None:
         r = client.post(PREFIX, json=_pipeline("curl"))
         assert r.status_code == 409
 
-    def test_empty_steps_rejected(self, client):
+    def test_empty_steps_rejected(self, client: TestClient) -> None:
         body = {"name": "bad", "pipeline": []}
         r = client.post(PREFIX, json=body)
         assert r.status_code == 422
 
-    def test_missing_name_rejected(self, client):
+    def test_missing_name_rejected(self, client: TestClient) -> None:
         body = {"pipeline": [_step()]}
         r = client.post(PREFIX, json=body)
         assert r.status_code == 422
 
-    def test_duplicate_step_ids_rejected(self, client):
+    def test_duplicate_step_ids_rejected(self, client: TestClient) -> None:
         body = {
             "name": "dupe-pipe",
             "pipeline": [_step("same-id"), _step("same-id")],
@@ -148,7 +154,7 @@ class TestCreatePipeline:
         r = client.post(PREFIX, json=body)
         assert r.status_code == 422
 
-    def test_unknown_requires_rejected(self, client):
+    def test_unknown_requires_rejected(self, client: TestClient) -> None:
         body = {
             "name": "bad-requires",
             "pipeline": [_step(requires=[_req("ghost-step")])],
@@ -163,7 +169,7 @@ class TestCreatePipeline:
 
 
 class TestReplacePipeline:
-    def test_replace(self, client):
+    def test_replace(self, client: TestClient) -> None:
         new_step = _step("replaced-step", exec_cmd="which python3")
         body = {
             "name": "curl",
@@ -178,11 +184,11 @@ class TestReplacePipeline:
         assert step_ids == ["replaced-step"]
         assert "curl-installed" not in step_ids
 
-    def test_replace_not_found(self, client):
+    def test_replace_not_found(self, client: TestClient) -> None:
         r = client.put(f"{PREFIX}/ghost", json=_pipeline("ghost"))
         assert r.status_code == 404
 
-    def test_replace_name_mismatch_rejected(self, client):
+    def test_replace_name_mismatch_rejected(self, client: TestClient) -> None:
         body = _pipeline("wrong-name")
         r = client.put(f"{PREFIX}/curl", json=body)
         assert r.status_code == 400
@@ -194,13 +200,13 @@ class TestReplacePipeline:
 
 
 class TestListSteps:
-    def test_list_steps(self, client):
+    def test_list_steps(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/curl/steps")
         assert r.status_code == 200
         assert isinstance(r.json(), list)
         assert r.json()[0]["id"] == "curl-installed"
 
-    def test_pipeline_not_found(self, client):
+    def test_pipeline_not_found(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/ghost/steps")
         assert r.status_code == 404
 
@@ -211,7 +217,7 @@ class TestListSteps:
 
 
 class TestAddStep:
-    def test_add_step(self, client):
+    def test_add_step(self, client: TestClient) -> None:
         new = _step("extra-step", exec_cmd="which git")
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         print(r.content)
@@ -220,28 +226,28 @@ class TestAddStep:
         assert "curl-installed" in ids
         assert "extra-step" in ids
 
-    def test_add_step_with_valid_requires(self, client):
+    def test_add_step_with_valid_requires(self, client: TestClient) -> None:
         new = _step("depends-on-curl", requires=[_req("curl-installed", branch=0)])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         print(r.content)
         assert r.status_code == 200
 
-    def test_add_step_requiring_fail_branch_rejected(self, client):
+    def test_add_step_requiring_fail_branch_rejected(self, client: TestClient) -> None:
         # Branch 1 of a binary step defaults to signal 'fail' — cannot be required.
         new = _step("on-fail-branch", requires=[_req("curl-installed", branch=1)])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         assert r.status_code in (400, 422)
 
-    def test_add_duplicate_id_rejected(self, client):
+    def test_add_duplicate_id_rejected(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/curl/steps", json=_step("curl-installed"))
         assert r.status_code == 422
 
-    def test_add_step_unknown_requires_rejected(self, client):
+    def test_add_step_unknown_requires_rejected(self, client: TestClient) -> None:
         new = _step("broken", requires=[_req("nonexistent")])
         r = client.post(f"{PREFIX}/curl/steps", json=new)
         assert r.status_code == 422
 
-    def test_pipeline_not_found(self, client):
+    def test_pipeline_not_found(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/ghost/steps", json=_step())
         assert r.status_code == 404
 
@@ -252,7 +258,7 @@ class TestAddStep:
 
 
 class TestEditStep:
-    def test_edit_exec(self, client):
+    def test_edit_exec(self, client: TestClient) -> None:
         patch = {"exec": "which curl2"}
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json=patch)
         print(r.content)
@@ -260,31 +266,29 @@ class TestEditStep:
         step = next(s for s in r.json()["pipeline"] if s["id"] == "curl-installed")
         assert step["exec"] == "which curl2"
 
-    def test_edit_empty_patch_is_noop(self, client):
+    def test_edit_empty_patch_is_noop(self, client: TestClient) -> None:
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json={})
         print(r.content)
         assert r.status_code == 200
         step = next(s for s in r.json()["pipeline"] if s["id"] == "curl-installed")
         assert step["exec"] == "which curl"
 
-    def test_edit_step_not_found(self, client):
+    def test_edit_step_not_found(self, client: TestClient) -> None:
         r = client.patch(f"{PREFIX}/curl/steps/ghost", json={"exec": "ls"})
         assert r.status_code == 404
 
-    def test_edit_pipeline_not_found(self, client):
+    def test_edit_pipeline_not_found(self, client: TestClient) -> None:
         r = client.patch(f"{PREFIX}/ghost/steps/any", json={"exec": "ls"})
         assert r.status_code == 404
 
-    def test_edit_requires_to_unknown_rejected(self, client):
+    def test_edit_requires_to_unknown_rejected(self, client: TestClient) -> None:
         patch = {"requires": [_req("nonexistent")]}
         r = client.patch(f"{PREFIX}/curl/steps/curl-installed", json=patch)
         assert r.status_code == 422
 
-    def test_edit_check_patterns(self, client):
+    def test_edit_check_patterns(self, client: TestClient) -> None:
         # First add a step with a pattern-based check
-        new = _step(
-            "pattern-step", exec_cmd="echo hello", check_method="stdout_contains"
-        )
+        new = _step("pattern-step", exec_cmd="echo hello", check_method="stdout_contains")
         new["check_patterns"] = ["hello"]
         client.post(f"{PREFIX}/curl/steps", json=new)
         # Now patch to update patterns
@@ -301,7 +305,7 @@ class TestEditStep:
 
 
 class TestRemoveStep:
-    def test_remove_step(self, client):
+    def test_remove_step(self, client: TestClient) -> None:
         # File-keeper has only fk-installed, add a second step first so the
         # pipeline stays valid (min_length=1) after removal
         client.post(f"{PREFIX}/File-keeper/steps", json=_step("extra"))
@@ -312,19 +316,19 @@ class TestRemoveStep:
         assert "extra" not in ids
         assert "fk-installed" in ids
 
-    def test_remove_step_not_found(self, client):
+    def test_remove_step_not_found(self, client: TestClient) -> None:
         r = client.delete(f"{PREFIX}/curl/steps/ghost")
         assert r.status_code == 404
 
-    def test_remove_pipeline_not_found(self, client):
+    def test_remove_pipeline_not_found(self, client: TestClient) -> None:
         r = client.delete(f"{PREFIX}/ghost/steps/any")
         assert r.status_code == 404
 
-    def test_remove_last_step_rejected(self, client):
+    def test_remove_last_step_rejected(self, client: TestClient) -> None:
         r = client.delete(f"{PREFIX}/curl/steps/curl-installed")
         assert r.status_code == 422
 
-    def test_remove_required_step_rejected(self, client):
+    def test_remove_required_step_rejected(self, client: TestClient) -> None:
         # Add a step that depends on curl-installed, then try to delete curl-installed
         client.post(
             f"{PREFIX}/curl/steps",

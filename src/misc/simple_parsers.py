@@ -27,7 +27,7 @@ def parse_table(output: str) -> list[dict[str, Any]]:
 def pct_config_parser(conf: str) -> dict[str, Any]:
     """Extract key fields from a Proxmox CT config file (e.g. /etc/pve/lxc/<id>.conf)."""
 
-    def _find(pattern: str):
+    def _find(pattern: str) -> str | None:
         return (re.findall(pattern, conf) or [None])[0]
 
     arch = _find(r"arch: (.*?)\n")

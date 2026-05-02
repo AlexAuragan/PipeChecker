@@ -51,8 +51,7 @@ class RSSConnector(AlertConnector):
     feed_path: Path
     title_template: str = "[$signal] $pipeline_name — $target_name"
     description_template: str = (
-        "Alert '$alert_name' fired with signal $signal "
-        "for $target_name on pipeline $pipeline_name.\n$url"
+        "Alert '$alert_name' fired with signal $signal " "for $target_name on pipeline $pipeline_name.\n$url"
     )
     max_items: int = 50
 
@@ -74,14 +73,10 @@ class RSSConnector(AlertConnector):
         assert channel is not None
         item = ET.Element("item")
         ET.SubElement(item, "title").text = self._render(self.title_template, alert)
-        ET.SubElement(item, "description").text = self._render(
-            self.description_template, alert
-        )
+        ET.SubElement(item, "description").text = self._render(self.description_template, alert)
         ET.SubElement(item, "link").text = alert.url
         ET.SubElement(item, "pubDate").text = formatdate(alert.triggered_at.timestamp())
-        ET.SubElement(item, "guid").text = (
-            f"{alert.pipeline_name}/{alert.target_id}/{alert.triggered_at.isoformat()}"
-        )
+        ET.SubElement(item, "guid").text = f"{alert.pipeline_name}/{alert.target_id}/{alert.triggered_at.isoformat()}"
 
         # Insert newest first, then trim to max_items
         first_item_pos = sum(1 for c in channel if c.tag != "item")
@@ -112,9 +107,7 @@ class WebhookConnector(AlertConnector):
 class DiscordConnector(WebhookConnector):
     type: Literal[AlertConnectorType.discord] = AlertConnectorType.discord
     # Discord markdown — \n must be a real newline in the rendered string
-    body_template: str = (
-        '{"content": "**[$signal]** `$pipeline_name` / $target_name\\n$url"}'
-    )
+    body_template: str = '{"content": "**[$signal]** `$pipeline_name` / $target_name\\n$url"}'
 
 
 _REGISTRY: dict[AlertConnectorType, type[AlertConnector]] = {

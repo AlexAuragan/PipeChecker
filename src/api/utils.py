@@ -22,7 +22,7 @@ scheduler = AsyncIOScheduler()
 def make_scheduled_job(app: FastAPI, pipe: Pipeline):
     """Return an async callable that runs the given pipeline as a cron job."""
 
-    async def job():
+    async def job() -> None:
         manager = app.state.manager
         if manager is None:
             print(f"Skipping {pipe.name}: manager not ready")
@@ -52,9 +52,7 @@ def _check_credentials() -> None:
     if not os.getenv("PIPECHECKER_API_KEY_HASH"):
         missing.append("PIPECHECKER_API_KEY_HASH  (run: python cli.py generate-key)")
     if not os.getenv("PIPECHECKER_WEB_PASSWORD_HASH"):
-        missing.append(
-            "PIPECHECKER_WEB_PASSWORD_HASH  (run: python cli.py generate-web-password)"
-        )
+        missing.append("PIPECHECKER_WEB_PASSWORD_HASH  (run: python cli.py generate-web-password)")
     if missing:
         print("ERROR: The following required environment variables are not set:")
         for m in missing:
@@ -124,7 +122,9 @@ def get_manager(request: Request) -> Manager:
         raise HTTPException(status_code=503, detail="Still loading connectors")
     return request.app.state.manager
 
+
 ManagerDep = Annotated[Manager, Depends(get_manager)]
+
 
 async def watch_config(app: FastAPI):
     """Background task: reload the manager whenever the connector config file changes."""
@@ -176,11 +176,7 @@ async def reload_manager(app: FastAPI) -> None:
 
 def load_all_pipelines() -> dict[str, Pipeline]:
     """Flatten all pipeline groups into a single dict keyed by pipeline name."""
-    return {
-        name: pipe
-        for group in storage.load_pipelines().values()
-        for name, pipe in group.items()
-    }
+    return {name: pipe for group in storage.load_pipelines().values() for name, pipe in group.items()}
 
 
 ## Connectors
@@ -228,10 +224,7 @@ def _fire_alerts(result: "PipelineResult", job_id: UUID) -> None:  # type: ignor
         if not alerts:
             return
         for alert_cfg in alerts:
-            if (
-                alert_cfg.pipeline is not None
-                and alert_cfg.pipeline != result.pipeline_name
-            ):
+            if alert_cfg.pipeline is not None and alert_cfg.pipeline != result.pipeline_name:
                 continue
             if result.status not in alert_cfg.on_signals:
                 continue
@@ -247,11 +240,7 @@ def _fire_alerts(result: "PipelineResult", job_id: UUID) -> None:  # type: ignor
             if alert_cfg.connector:
                 try:
                     connector = next(
-                        (
-                            c
-                            for c in storage.load_alert_connectors()
-                            if c.name == alert_cfg.connector
-                        ),
+                        (c for c in storage.load_alert_connectors() if c.name == alert_cfg.connector),
                         None,
                     )
                     if connector:
@@ -276,15 +265,13 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
 
         pipeline = pipelines[pipeline_name]
 
-        needs_loading = any(
-            not manager.get(c).is_loaded for c in pipeline.connectors if c in manager
-        )
+        needs_loading = any(not manager.get(c).is_loaded for c in pipeline.connectors if c in manager)
         if needs_loading:
             jobs.set_job_phase(job_id, "Loading targets…")
             await asyncio.to_thread(_ensure_targets_loaded, pipeline, manager)
             jobs.set_job_phase(job_id, None)
 
-        def on_result(r):
+        def on_result(r: "PipelineResult") -> None:
             jobs.write_pipeline_result(job_id, r)
             _fire_alerts(r, job_id)
 

@@ -6,14 +6,16 @@ Fixture YAML files live in tests/fixtures/ and are copied to a
 tmp_path by the root conftest.py (isolated_config).
 """
 
-import pytest
+from collections.abc import Generator
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
-from src.api.api import app
 from src.api import utils
-from src.classes.connectors import Manager, Proxmox, Caddy
+from src.api.api import app
+from src.classes.connectors import Caddy, Manager, Proxmox
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -23,7 +25,7 @@ FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 SAMPLE_CADDYFILE = str(FIXTURES_DIR / "Caddyfile")
 
 
-def _make_manager(*connectors) -> Manager:
+def _make_manager(*connectors: Proxmox | Caddy) -> Manager:
     """Build an in-memory Manager pre-loaded with given connectors."""
     m = Manager(autoload=False)
     for c in connectors:
@@ -31,14 +33,14 @@ def _make_manager(*connectors) -> Manager:
     return m
 
 
-def _proxmox(name="proxmox", ssh=None):
+def _proxmox(name: str = "proxmox", ssh: list[str] | None = None) -> Proxmox:
     return Proxmox(
         name=name,
         config_ssh=ssh or ["root@192.168.1.9", "root@192.168.1.10"],
     )
 
 
-def _caddy(name="caddy", path=None):
+def _caddy(name: str = "caddy", path: list[str] | None = None) -> Caddy:
     return Caddy(
         name=name,
         config_path=path or [SAMPLE_CADDYFILE],
@@ -51,13 +53,13 @@ def _caddy(name="caddy", path=None):
 
 
 @pytest.fixture(autouse=True)
-def _no_save(monkeypatch):
+def _no_save(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prevent all test runs from writing to disk."""
     monkeypatch.setattr("src.api.routers.connectors.save_manager", lambda m: None)
 
 
 @pytest.fixture()
-def client_empty(api_key):
+def client_empty(api_key: str) -> Generator[TestClient, None, None]:
     manager = _make_manager()
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -66,7 +68,7 @@ def client_empty(api_key):
 
 
 @pytest.fixture()
-def client_with_proxmox(api_key):
+def client_with_proxmox(api_key: str) -> Generator[TestClient, None, None]:
     manager = _make_manager(_proxmox())
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -75,7 +77,7 @@ def client_with_proxmox(api_key):
 
 
 @pytest.fixture()
-def client_with_both(api_key):
+def client_with_both(api_key: str) -> Generator[TestClient, None, None]:
     manager = _make_manager(_proxmox(), _caddy())
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -92,19 +94,19 @@ PREFIX = "/api/v1/connectors"
 
 
 class TestListConnectors:
-    def test_empty(self, client_empty):
+    def test_empty(self, client_empty: TestClient) -> None:
         r = client_empty.get(PREFIX)
         print(r.json())
         assert r.status_code == 200
         assert r.json() == []
 
-    def test_returns_all(self, client_with_both):
+    def test_returns_all(self, client_with_both: TestClient) -> None:
         r = client_with_both.get(PREFIX)
         assert r.status_code == 200
         names = {c["name"] for c in r.json()}
         assert names == {"proxmox", "caddy"}
 
-    def test_response_shape(self, client_with_proxmox):
+    def test_response_shape(self, client_with_proxmox: TestClient) -> None:
         r = client_with_proxmox.get(PREFIX)
         item = r.json()[0]
         assert set(item.keys()) == {
@@ -128,12 +130,12 @@ class TestListConnectors:
 
 
 class TestGetConnector:
-    def test_found(self, client_with_proxmox):
+    def test_found(self, client_with_proxmox: TestClient) -> None:
         r = client_with_proxmox.get(f"{PREFIX}/proxmox")
         assert r.status_code == 200
         assert r.json()["name"] == "proxmox"
 
-    def test_not_found(self, client_empty):
+    def test_not_found(self, client_empty: TestClient) -> None:
         r = client_empty.get(f"{PREFIX}/nonexistent")
         assert r.status_code == 404
 
@@ -144,7 +146,7 @@ class TestGetConnector:
 
 
 class TestCreateConnector:
-    def test_create_proxmox(self, client_empty):
+    def test_create_proxmox(self, client_empty: TestClient) -> None:
         body = {
             "name": "pve-new",
             "type": "Proxmox",
@@ -157,7 +159,7 @@ class TestCreateConnector:
         assert data["type"] == "Proxmox"
         assert data["config_ssh"] == ["root@10.0.0.1"]
 
-    def test_create_caddy(self, client_empty):
+    def test_create_caddy(self, client_empty: TestClient) -> None:
         body = {
             "name": "my-caddy",
             "type": "Caddy",
@@ -167,7 +169,7 @@ class TestCreateConnector:
         assert r.status_code == 201
         assert r.json()["type"] == "Caddy"
 
-    def test_conflict(self, client_with_proxmox):
+    def test_conflict(self, client_with_proxmox: TestClient) -> None:
         body = {
             "name": "proxmox",
             "type": "Proxmox",
@@ -176,17 +178,17 @@ class TestCreateConnector:
         r = client_with_proxmox.post(PREFIX, json=body)
         assert r.status_code == 409
 
-    def test_missing_type(self, client_empty):
+    def test_missing_type(self, client_empty: TestClient) -> None:
         body = {"name": "broken"}
         r = client_empty.post(PREFIX, json=body)
         assert r.status_code == 422
 
-    def test_invalid_type(self, client_empty):
+    def test_invalid_type(self, client_empty: TestClient) -> None:
         body = {"name": "broken", "type": "Docker"}
         r = client_empty.post(PREFIX, json=body)
         assert r.status_code == 422
 
-    def test_appears_in_list_after_create(self, client_empty):
+    def test_appears_in_list_after_create(self, client_empty: TestClient) -> None:
         body = {
             "name": "fresh",
             "type": "Proxmox",
@@ -203,7 +205,7 @@ class TestCreateConnector:
 
 
 class TestReplaceConnector:
-    def test_replace(self, client_with_proxmox):
+    def test_replace(self, client_with_proxmox: TestClient) -> None:
         body = {
             "name": "proxmox",
             "type": "Proxmox",
@@ -213,7 +215,7 @@ class TestReplaceConnector:
         assert r.status_code == 200
         assert r.json()["config_ssh"] == ["root@10.0.0.99"]
 
-    def test_replace_not_found(self, client_empty):
+    def test_replace_not_found(self, client_empty: TestClient) -> None:
         body = {
             "name": "ghost",
             "type": "Proxmox",
@@ -229,7 +231,7 @@ class TestReplaceConnector:
 
 
 class TestPatchConnector:
-    def test_patch_ssh_only(self, client_with_proxmox):
+    def test_patch_ssh_only(self, client_with_proxmox: TestClient) -> None:
         body = {"config_ssh": ["root@10.0.0.50"]}
         r = client_with_proxmox.patch(f"{PREFIX}/proxmox", json=body)
         assert r.status_code == 200
@@ -237,7 +239,7 @@ class TestPatchConnector:
         assert data["config_ssh"] == ["root@10.0.0.50"]
         assert data["type"] == "Proxmox"
 
-    def test_patch_empty_body(self, client_with_proxmox):
+    def test_patch_empty_body(self, client_with_proxmox: TestClient) -> None:
         r = client_with_proxmox.patch(f"{PREFIX}/proxmox", json={})
         assert r.status_code == 200
         assert r.json()["config_ssh"] == [
@@ -245,7 +247,7 @@ class TestPatchConnector:
             "root@192.168.1.10",
         ]
 
-    def test_patch_not_found(self, client_empty):
+    def test_patch_not_found(self, client_empty: TestClient) -> None:
         r = client_empty.patch(f"{PREFIX}/ghost", json={"config_ssh": ["root@1.2.3.4"]})
         assert r.status_code == 404
 
@@ -256,13 +258,13 @@ class TestPatchConnector:
 
 
 class TestDeleteConnector:
-    def test_delete(self, client_with_proxmox):
+    def test_delete(self, client_with_proxmox: TestClient) -> None:
         r = client_with_proxmox.delete(f"{PREFIX}/proxmox")
         assert r.status_code == 204
         r = client_with_proxmox.get(f"{PREFIX}/proxmox")
         assert r.status_code == 404
 
-    def test_delete_not_found(self, client_empty):
+    def test_delete_not_found(self, client_empty: TestClient) -> None:
         r = client_empty.delete(f"{PREFIX}/nonexistent")
         assert r.status_code == 404
 
@@ -276,7 +278,7 @@ class TestDeleteConnector:
 class TestTargets:
     """These endpoints SSH into machines, so we mock load_targets."""
 
-    def test_list_targets(self, client_with_proxmox):
+    def test_list_targets(self, client_with_proxmox: TestClient) -> None:
         fake = MagicMock()
         fake.id = "100"
         fake.config = {"ip": "192.168.1.100", "name": "ct-100"}
@@ -293,7 +295,7 @@ class TestTargets:
             assert data[0]["id"] == "100"
             assert data[0]["conf"]["ip"] == "192.168.1.100"
 
-    def test_discover(self, client_with_proxmox):
+    def test_discover(self, client_with_proxmox: TestClient) -> None:
         fake = MagicMock()
         fake.id = "200"
         fake.config = {"ip": "192.168.1.200", "name": "ct-200"}
@@ -308,6 +310,6 @@ class TestTargets:
                 assert r.status_code == 200
                 assert r.json()[0]["id"] == "200"
 
-    def test_targets_connector_not_found(self, client_empty):
+    def test_targets_connector_not_found(self, client_empty: TestClient) -> None:
         r = client_empty.get(f"{PREFIX}/ghost/targets")
         assert r.status_code == 404

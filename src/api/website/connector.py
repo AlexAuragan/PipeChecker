@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 
 from src.api import utils
@@ -12,7 +12,7 @@ router = APIRouter(tags=["connector"], dependencies=[Depends(require_web_auth)])
 
 
 @router.get("", response_class=HTMLResponse)
-def connectors_page(request: Request):
+def connectors_page(request: Request) -> HTMLResponse:
     manager = storage.load_manager()
     return templates.TemplateResponse(
         request=request,
@@ -25,7 +25,7 @@ def connectors_page(request: Request):
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_connector_page(request: Request):
+def new_connector_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="connector_form.html",
@@ -46,7 +46,7 @@ def new_connector_page(request: Request):
 
 
 @router.post("/new", response_class=HTMLResponse)
-async def create_connector_web(request: Request):
+async def create_connector_web(request: Request) -> Response:
     form = await request.form()
     try:
         connector = parse_connector_form(form)
@@ -87,7 +87,7 @@ async def create_connector_web(request: Request):
 
 
 @router.get("/{name}/edit", response_class=HTMLResponse)
-def edit_connector_page(request: Request, name: str):
+def edit_connector_page(request: Request, name: str) -> HTMLResponse:
     manager = storage.load_manager()
     connector = utils.get_connector_or_404(manager, name)
     return templates.TemplateResponse(
@@ -110,7 +110,7 @@ def edit_connector_page(request: Request, name: str):
 
 
 @router.post("/{name}/edit", response_class=HTMLResponse)
-async def update_connector_web(request: Request, name: str):
+async def update_connector_web(request: Request, name: str) -> Response:
     form = await request.form()
     try:
         connector = parse_connector_form(form)

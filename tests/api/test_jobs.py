@@ -10,17 +10,21 @@ run.run_pipeline is patched to a no-op for every test — no SSH, no targets,
 empty results list.
 """
 
+from collections.abc import Callable, Generator
 from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from src.api import utils
 from src.api.api import app
 from src.classes.connectors import Manager
+from src.classes.pipeline import Pipeline
+from src.classes.results import PipelineResult
 from src.core.database import Job, JobStatus
 
 PREFIX = "/api/v1/jobs"
@@ -32,13 +36,18 @@ PIPELINE_NAME = "curl"  # present in tests/fixtures/pipelines/fk.yaml
 # ---------------------------------------------------------------------------
 
 
-def _fake_run_pipeline(pipeline, manager, on_result=None, should_stop=None):
+def _fake_run_pipeline(
+    pipeline: Pipeline,
+    manager: Manager,
+    on_result: Callable[[PipelineResult], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
+) -> list[PipelineResult]:
     """No-op replacement for run_pipeline — no SSH, no targets, empty results."""
     return []
 
 
 @pytest.fixture()
-def db_engine(monkeypatch):
+def db_engine(monkeypatch: pytest.MonkeyPatch) -> Engine:
     # StaticPool keeps a single connection alive so the in-memory DB persists
     # across all Session() calls made during a test.
     engine = create_engine(
@@ -56,7 +65,7 @@ def db_engine(monkeypatch):
 
 
 @pytest.fixture()
-def client(db_engine, api_key):
+def client(db_engine: Engine, api_key: str) -> Generator[TestClient, None, None]:
     manager = Manager(autoload=False)
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with patch("src.core.run.run_pipeline", side_effect=_fake_run_pipeline):
@@ -66,7 +75,7 @@ def client(db_engine, api_key):
 
 
 @pytest.fixture(autouse=True)
-def clear_cancelled():
+def clear_cancelled() -> Generator[None, None, None]:
     import src.core.jobs as jobs_module
 
     jobs_module._cancelled.clear()
@@ -79,7 +88,7 @@ def clear_cancelled():
 # ---------------------------------------------------------------------------
 
 
-def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status:JobStatus = JobStatus.pending) -> UUID:
+def _insert_job(db_engine: Engine, pipeline_name: str = PIPELINE_NAME, status: JobStatus = JobStatus.pending) -> UUID:
     """Insert a job directly into the DB, bypassing the API."""
     with Session(db_engine) as session:
         job = Job(pipeline_name=pipeline_name, status=status)
@@ -89,7 +98,7 @@ def _insert_job(db_engine, pipeline_name=PIPELINE_NAME, status:JobStatus = JobSt
         return job.id
 
 
-def _start_job(client, name=PIPELINE_NAME) -> UUID:
+def _start_job(client: TestClient, name: str = PIPELINE_NAME) -> UUID:
     r = client.post(f"{PREFIX}/{name}")
     assert r.status_code == 202
     return UUID(r.json()["job_id"])
@@ -101,26 +110,26 @@ def _start_job(client, name=PIPELINE_NAME) -> UUID:
 
 
 class TestStartJob:
-    def test_returns_202_and_uuid(self, client):
+    def test_returns_202_and_uuid(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/{PIPELINE_NAME}")
         assert r.status_code == 202
         UUID(r.json()["job_id"])  # raises if not a valid UUID
 
-    def test_unknown_pipeline_returns_404(self, client):
+    def test_unknown_pipeline_returns_404(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/nonexistent")
         assert r.status_code == 404
 
-    def test_job_appears_in_list(self, client):
+    def test_job_appears_in_list(self, client: TestClient) -> None:
         job_id = _start_job(client)
         ids = [j["id"] for j in client.get(f"{PREFIX}/").json()]
         assert str(job_id) in ids
 
-    def test_job_status_is_completed(self, client):
+    def test_job_status_is_completed(self, client: TestClient) -> None:
         job_id = _start_job(client)
         r = client.get(f"{PREFIX}/{job_id}")
         assert r.json()["status"] == "completed"
 
-    def test_completed_job_results_empty_when_no_targets(self, client):
+    def test_completed_job_results_empty_when_no_targets(self, client: TestClient) -> None:
         job_id = _start_job(client)
         r = client.get(f"{PREFIX}/{job_id}")
         assert r.json()["results"] == []
@@ -132,14 +141,14 @@ class TestStartJob:
 
 
 class TestGetJob:
-    def test_found(self, client):
+    def test_found(self, client: TestClient) -> None:
         job_id = _start_job(client)
         assert client.get(f"{PREFIX}/{job_id}").status_code == 200
 
-    def test_not_found(self, client):
+    def test_not_found(self, client: TestClient) -> None:
         assert client.get(f"{PREFIX}/{uuid4()}").status_code == 404
 
-    def test_response_shape(self, client):
+    def test_response_shape(self, client: TestClient) -> None:
         job_id = _start_job(client)
         body = client.get(f"{PREFIX}/{job_id}").json()
         assert body["id"] == str(job_id)
@@ -155,17 +164,17 @@ class TestGetJob:
 
 
 class TestListJobs:
-    def test_empty_initially(self, client):
+    def test_empty_initially(self, client: TestClient) -> None:
         r = client.get(f"{PREFIX}/")
         assert r.status_code == 200
         assert r.json() == []
 
-    def test_returns_all_started_jobs(self, client):
+    def test_returns_all_started_jobs(self, client: TestClient) -> None:
         _start_job(client)
         _start_job(client)
         assert len(client.get(f"{PREFIX}/").json()) == 2
 
-    def test_summary_shape(self, client):
+    def test_summary_shape(self, client: TestClient) -> None:
         _start_job(client)
         item = client.get(f"{PREFIX}/").json()[0]
         assert "id" in item
@@ -174,7 +183,7 @@ class TestListJobs:
         assert "created_at" in item
         assert "results" not in item  # summary only, no step detail
 
-    def test_sorted_newest_first(self, client):
+    def test_sorted_newest_first(self, client: TestClient) -> None:
         id1 = str(_start_job(client))
         id2 = str(_start_job(client))
         ids = [j["id"] for j in client.get(f"{PREFIX}/").json()]
@@ -187,11 +196,11 @@ class TestListJobs:
 
 
 class TestCancelJob:
-    def test_cancel_pending_job(self, client, db_engine):
+    def test_cancel_pending_job(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.pending)
         assert client.post(f"{PREFIX}/{job_id}/cancel").status_code == 204
 
-    def test_cancel_sets_status_to_cancelled(self, client, db_engine):
+    def test_cancel_sets_status_to_cancelled(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.pending)
         client.post(f"{PREFIX}/{job_id}/cancel")
         with Session(db_engine) as session:
@@ -199,19 +208,19 @@ class TestCancelJob:
             assert job is not None
             assert job.status == JobStatus.cancelled
 
-    def test_cancel_completed_job_returns_409(self, client):
+    def test_cancel_completed_job_returns_409(self, client: TestClient) -> None:
         job_id = _start_job(client)  # ends as completed
         assert client.post(f"{PREFIX}/{job_id}/cancel").status_code == 409
 
-    def test_cancel_already_cancelled_returns_409(self, client, db_engine):
+    def test_cancel_already_cancelled_returns_409(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.cancelled)
         assert client.post(f"{PREFIX}/{job_id}/cancel").status_code == 409
 
-    def test_cancel_failed_job_returns_409(self, client, db_engine):
+    def test_cancel_failed_job_returns_409(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.failed)
         assert client.post(f"{PREFIX}/{job_id}/cancel").status_code == 409
 
-    def test_cancel_nonexistent_returns_409(self, client):
+    def test_cancel_nonexistent_returns_409(self, client: TestClient) -> None:
         assert client.post(f"{PREFIX}/{uuid4()}/cancel").status_code == 409
 
 
@@ -221,39 +230,39 @@ class TestCancelJob:
 
 
 class TestRetryJob:
-    def test_retry_failed_job_returns_202(self, client, db_engine):
+    def test_retry_failed_job_returns_202(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.failed)
         assert client.post(f"{PREFIX}/{job_id}/retry").status_code == 202
 
-    def test_retry_cancelled_job_returns_202(self, client, db_engine):
+    def test_retry_cancelled_job_returns_202(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.cancelled)
         assert client.post(f"{PREFIX}/{job_id}/retry").status_code == 202
 
-    def test_retry_returns_new_job_id(self, client, db_engine):
+    def test_retry_returns_new_job_id(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.failed)
         new_id = UUID(client.post(f"{PREFIX}/{job_id}/retry").json()["job_id"])
         assert new_id != job_id
 
-    def test_retry_completed_job_returns_409(self, client):
+    def test_retry_completed_job_returns_409(self, client: TestClient) -> None:
         job_id = _start_job(client)  # ends as completed
         assert client.post(f"{PREFIX}/{job_id}/retry").status_code == 409
 
-    def test_retry_pending_job_returns_409(self, client, db_engine):
+    def test_retry_pending_job_returns_409(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.pending)
         r = client.post(f"{PREFIX}/{job_id}/retry")
         print(r.content)
         assert r.status_code == 409
 
-    def test_retry_nonexistent_returns_409(self, client):
+    def test_retry_nonexistent_returns_409(self, client: TestClient) -> None:
         assert client.post(f"{PREFIX}/{uuid4()}/retry").status_code == 409
 
-    def test_retry_new_job_appears_in_list(self, client, db_engine):
+    def test_retry_new_job_appears_in_list(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.failed)
         new_id = client.post(f"{PREFIX}/{job_id}/retry").json()["job_id"]
         ids = [j["id"] for j in client.get(f"{PREFIX}/").json()]
         assert new_id in ids
 
-    def test_retry_new_job_has_same_pipeline(self, client, db_engine):
+    def test_retry_new_job_has_same_pipeline(self, client: TestClient, db_engine: Engine) -> None:
         job_id = _insert_job(db_engine, status=JobStatus.failed)
         new_id = client.post(f"{PREFIX}/{job_id}/retry").json()["job_id"]
         body = client.get(f"{PREFIX}/{new_id}").json()

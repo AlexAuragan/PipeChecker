@@ -18,8 +18,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "basedpyright>=1.39.3",
+    "pre-commit>=4.6.0",
     "pytest>=9.0.2",
 ]
+[tool.black]
+line-length = 120
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
@@ -29,11 +32,12 @@ where = ["src"]
 
 [tool.basedpyright]
 # Pydantic discriminated unions: Literal[X] overriding EnumType is intentional
-reportIncompatibleVariableOverride = "none"
+reportIncompatibleVariableOverride = "hint"
 # Pydantic PrivateAttr stubs strip | None from annotations
-reportAssignmentType = "none"
+reportAssignmentType = "information"
 # BaseModel + ABC is standard for abstract Pydantic models
-reportUnsafeMultipleInheritance = "none"
+reportUnsafeMultipleInheritance = "information"
+reportMissingParameterType = "error"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

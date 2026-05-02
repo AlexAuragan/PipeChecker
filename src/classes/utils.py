@@ -49,9 +49,7 @@ def get_file_from_url(url: str) -> bytes:
     return response.content
 
 
-def execute_on_machine(
-    config_ssh: str, command: str, return_error: bool = False
-) -> str:
+def execute_on_machine(config_ssh: str, command: str, return_error: bool = False) -> str:
     """Execute a shell command on a remote machine via SSH.
 
     :param config_ssh: SSH target of format user@ip
@@ -71,9 +69,7 @@ def execute_on_machine(
         if return_error:
             return stdout_str
         if stderr_str or exit_code:
-            raise RuntimeError(
-                f"Error while executing `{command}` on remote {config_ssh}", stderr_str
-            )
+            raise RuntimeError(f"Error while executing `{command}` on remote {config_ssh}", stderr_str)
         return stdout_str
     except socket.timeout:
         raise RuntimeError(f"Timeout executing `{command}` on remote {config_ssh}")
@@ -93,32 +89,22 @@ def execute_on_ct(target: t.ProxmoxCT, command: str) -> tuple[str, str, int, flo
     start = time.time()
     match ostype:
         case "ubuntu":
-            stdout_str, stderr_str, exit_code = execute_on_ubuntu_ct(
-                node_ssh, pct_id, command
-            )
+            stdout_str, stderr_str, exit_code = execute_on_ubuntu_ct(node_ssh, pct_id, command)
         case "debian":
-            stdout_str, stderr_str, exit_code = execute_on_debian_ct(
-                node_ssh, pct_id, command
-            )
+            stdout_str, stderr_str, exit_code = execute_on_debian_ct(node_ssh, pct_id, command)
         case _:
-            raise NotImplementedError(
-                "Proxmox CT execution not implemented for os", ostype
-            )
+            raise NotImplementedError("Proxmox CT execution not implemented for os", ostype)
     return stdout_str, stderr_str, exit_code, time.time() - start
 
 
-def execute_on_debian_ct(
-    node_ssh: str, pct_id: int, command: str
-) -> tuple[str, str, int]:
+def execute_on_debian_ct(node_ssh: str, pct_id: int, command: str) -> tuple[str, str, int]:
     token = "##CMD_OUTPUT_START##"
     inner = f"echo '{token}'; {command}"
     exec_cmd = f"pct exec {pct_id} -- bash -lc {shlex.quote(inner)}"
     return _execute_helper(node_ssh, pct_id, command, exec_cmd=exec_cmd, token=token)
 
 
-def execute_on_ubuntu_ct(
-    node_ssh: str, pct_id: int, command: str
-) -> tuple[str, str, int]:
+def execute_on_ubuntu_ct(node_ssh: str, pct_id: int, command: str) -> tuple[str, str, int]:
     # Ubuntu LXC containers require `su -l root` instead of `bash -lc` for a login shell
     token = "##CMD_OUTPUT_START##"
     inner = f"echo '{token}'; {command}"
@@ -149,9 +135,7 @@ def _execute_helper(
         exit_code = stdout.channel.recv_exit_status()
         return stdout_str, stderr_str, exit_code
     except socket.timeout:
-        raise RuntimeError(
-            f"Timeout executing `{command}` on CT {pct_id} via {node_ssh}"
-        )
+        raise RuntimeError(f"Timeout executing `{command}` on CT {pct_id} via {node_ssh}")
     except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
         raise e
@@ -159,18 +143,14 @@ def _execute_helper(
         client.close()
 
 
-def execute_script_on_ct(
-    target: t.ProxmoxCT, script_path: Path
-) -> tuple[str, str, int, float]:
+def execute_script_on_ct(target: t.ProxmoxCT, script_path: Path) -> tuple[str, str, int, float]:
     """Base64-encode a local script and pipe it into bash inside the container."""
     script_b64 = base64.b64encode(script_path.read_bytes()).decode("ascii")
     command = f"echo {shlex.quote(script_b64)} | base64 -d | bash"
     return execute_on_ct(target, command)
 
 
-def execute_on_linux(
-    target: t.RemoteLinuxMachine, command: str, timeout: int = 60
-) -> tuple[str, str, int, float]:
+def execute_on_linux(target: t.RemoteLinuxMachine, command: str, timeout: int = 60) -> tuple[str, str, int, float]:
     """Execute a command on a remote Linux machine via SSH."""
     client = paramiko.SSHClient()
     client.load_system_host_keys()
@@ -178,18 +158,14 @@ def execute_on_linux(
     try:
         client.connect(str(target.machine_ip), username=target.user, timeout=timeout)
         start = time.time()
-        _, stdout, stderr = client.exec_command(
-            f"bash -lc {shlex.quote(command)}", timeout=timeout
-        )
+        _, stdout, stderr = client.exec_command(f"bash -lc {shlex.quote(command)}", timeout=timeout)
         stderr_str = stderr.read().decode()
         stdout_str = stdout.read().decode()
         exit_code = stdout.channel.recv_exit_status()
         duration = time.time() - start
         return stdout_str, stderr_str, exit_code, duration
     except socket.timeout:
-        raise RuntimeError(
-            f"Timeout executing `{command}` on machine {target.hostname} via {target.ssh_addr}"
-        )
+        raise RuntimeError(f"Timeout executing `{command}` on machine {target.hostname} via {target.ssh_addr}")
     except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
         raise e
@@ -197,9 +173,7 @@ def execute_on_linux(
         client.close()
 
 
-def execute_script_on_linux(
-    target: t.RemoteLinuxMachine, script_path: Path
-) -> tuple[str, str, int, float]:
+def execute_script_on_linux(target: t.RemoteLinuxMachine, script_path: Path) -> tuple[str, str, int, float]:
     """Base64-encode a local script and pipe it into bash on the remote machine."""
     script_b64 = base64.b64encode(script_path.read_bytes()).decode("ascii")
     command = f"echo {shlex.quote(script_b64)} | base64 -d | bash -l"

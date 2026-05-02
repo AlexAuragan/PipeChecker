@@ -38,9 +38,7 @@ def create_job(
         return job.id
 
 
-def set_job_status(
-    job_id: UUID, status: JobStatus, crash_reason: str | None = None
-) -> None:
+def set_job_status(job_id: UUID, status: JobStatus, crash_reason: str | None = None) -> None:
     with Session(engine) as session:
         job = session.get(Job, job_id)
         if job is None:
@@ -152,9 +150,7 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
         to_crash: list[Job] = []
 
         if crash_all_running:
-            to_crash = list(
-                session.exec(select(Job).where(Job.status == JobStatus.running)).all()
-            )
+            to_crash = list(session.exec(select(Job).where(Job.status == JobStatus.running)).all())
 
         stale = session.exec(
             select(Job).where(
@@ -179,9 +175,7 @@ def archive_old_jobs() -> None:
         old_jobs = session.exec(
             select(Job).where(
                 Job.created_at < cutoff,
-                col(Job.status).in_(
-                    [JobStatus.completed, JobStatus.failed, JobStatus.crashed]
-                ),
+                col(Job.status).in_([JobStatus.completed, JobStatus.failed, JobStatus.crashed]),
             )
         ).all()
 
@@ -269,9 +263,7 @@ def delete_job(job_id: UUID) -> bool:
 def delete_cancelled_jobs() -> None:
     """Permanently delete all cancelled jobs."""
     with Session(engine) as session:
-        cancelled_jobs = session.exec(
-            select(Job).where(Job.status == JobStatus.cancelled)
-        ).all()
+        cancelled_jobs = session.exec(select(Job).where(Job.status == JobStatus.cancelled)).all()
         ids = {job.id for job in cancelled_jobs}
         for job in cancelled_jobs:
             session.delete(job)
@@ -298,9 +290,7 @@ def record_sent_alert(alert: SentAlert) -> None:
 def list_alert_history(limit: int = 200) -> list[dict[str, Any]]:
     with Session(engine) as session:
         records = session.exec(
-            select(SentAlertRecord)
-            .order_by(col(SentAlertRecord.triggered_at).desc())
-            .limit(limit)
+            select(SentAlertRecord).order_by(col(SentAlertRecord.triggered_at).desc()).limit(limit)
         ).all()
         return [
             {
@@ -338,11 +328,7 @@ def list_jobs() -> list[dict[str, Any]]:
         result = []
         for job in all_jobs:
             signals = [pr.status for pr in job.results]
-            worst = (
-                max(signals, key=lambda s: _SIGNAL_SEVERITY.get(s, 0))
-                if signals
-                else None
-            )
+            worst = max(signals, key=lambda s: _SIGNAL_SEVERITY.get(s, 0)) if signals else None
             result.append(
                 {
                     "id": job.id,

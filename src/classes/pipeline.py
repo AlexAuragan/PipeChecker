@@ -39,30 +39,22 @@ class PipelineStep(BaseModel):
 
             script_path = SCRIPTS_FOLDER / self.exec
             if not script_path.exists():
-                raise ValueError(
-                    f"Step '{self.id}': script not found at '{script_path}'"
-                )
+                raise ValueError(f"Step '{self.id}': script not found at '{script_path}'")
         return self
 
     @model_validator(mode="after")
     def validate_check_pattern(self) -> "PipelineStep":
         if self.check_method.requires_pattern() and self.check_patterns is None:
-            raise ValueError(
-                f"Step '{self.id}': check_pattern is required for check_method '{self.check_method}'"
-            )
+            raise ValueError(f"Step '{self.id}': check_pattern is required for check_method '{self.check_method}'")
         if not self.check_method.requires_pattern() and self.check_patterns is not None:
-            raise ValueError(
-                f"Step '{self.id}': check_pattern is forbidden for check_method '{self.check_method}'"
-            )
+            raise ValueError(f"Step '{self.id}': check_pattern is forbidden for check_method '{self.check_method}'")
         if any(req.step == self.id for req in self.requires):
             raise ValueError("Step own id cannot be in requires.")
         seen_pairs: set[tuple[str, int]] = set()
         for req in self.requires:
             pair = (req.step, req.branch)
             if pair in seen_pairs:
-                raise ValueError(
-                    f"Duplicate requirement ({req.step}, branch {req.branch}) in step '{self.id}'."
-                )
+                raise ValueError(f"Duplicate requirement ({req.step}, branch {req.branch}) in step '{self.id}'.")
             seen_pairs.add(pair)
 
         if self.check_method == CheckMethod.finish_in_less_than and self.check_patterns is not None:
@@ -94,9 +86,7 @@ class Pipeline(BaseModel):
         for step in self.pipeline:
             unknown = {req.step for req in step.requires} - step_map.keys()
             if unknown:
-                raise ValueError(
-                    f"Step '{step.id}' in pipeline '{self.name}' requires unknown step(s): {unknown}"
-                )
+                raise ValueError(f"Step '{step.id}' in pipeline '{self.name}' requires unknown step(s): {unknown}")
             for req in step.requires:
                 if req.step in step_map:
                     sig = step_map[req.step].get_branch_signal(req.branch)

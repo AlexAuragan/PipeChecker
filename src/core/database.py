@@ -125,11 +125,7 @@ def init_db():
     with engine.connect() as conn:
         job_cols = [c["name"] for c in sa_inspect(engine).get_columns("job")]
         if "source" not in job_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE job ADD COLUMN source VARCHAR NOT NULL DEFAULT 'manual'"
-                )
-            )
+            conn.execute(text("ALTER TABLE job ADD COLUMN source VARCHAR NOT NULL DEFAULT 'manual'"))
             conn.commit()
         if "crash_reason" not in job_cols:
             conn.execute(text("ALTER TABLE job ADD COLUMN crash_reason VARCHAR"))
@@ -138,94 +134,46 @@ def init_db():
             conn.execute(text("ALTER TABLE job ADD COLUMN phase VARCHAR"))
             conn.commit()
 
-        lpr_cols = [
-            c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")
-        ]
+        lpr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livepipelineresult")]
         if "target_name" not in lpr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE livepipelineresult ADD COLUMN target_name VARCHAR NOT NULL DEFAULT ''"
-                )
-            )
+            conn.execute(text("ALTER TABLE livepipelineresult ADD COLUMN target_name VARCHAR NOT NULL DEFAULT ''"))
             conn.commit()
         if "duration" not in lpr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE livepipelineresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"
-                )
-            )
+            conn.execute(text("ALTER TABLE livepipelineresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()
 
         ar_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedrun")]
         if "duration" not in ar_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE archivedrun ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"
-                )
-            )
+            conn.execute(text("ALTER TABLE archivedrun ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()
 
         lsr_cols = [c["name"] for c in sa_inspect(engine).get_columns("livestepresult")]
         if "duration" not in lsr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE livestepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"
-                )
-            )
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()
         if "branch" not in lsr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE livestepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"
-                )
-            )
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
         if "signal" not in lsr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE livestepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"
-                )
-            )
+            conn.execute(text("ALTER TABLE livestepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"))
             if "success" in lsr_cols:
-                conn.execute(
-                    text(
-                        "UPDATE livestepresult SET signal='fail' WHERE success=0 AND skipped=0"
-                    )
-                )
+                conn.execute(text("UPDATE livestepresult SET signal='fail' WHERE success=0 AND skipped=0"))
             conn.commit()
         if "success" in lsr_cols:
             conn.execute(text("ALTER TABLE livestepresult DROP COLUMN success"))
             conn.commit()
 
-        asr_cols = [
-            c["name"] for c in sa_inspect(engine).get_columns("archivedstepresult")
-        ]
+        asr_cols = [c["name"] for c in sa_inspect(engine).get_columns("archivedstepresult")]
         if "duration" not in asr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE archivedstepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"
-                )
-            )
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN duration FLOAT NOT NULL DEFAULT 0.0"))
             conn.commit()
         if "branch" not in asr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE archivedstepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"
-                )
-            )
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN branch INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
         if "signal" not in asr_cols:
-            conn.execute(
-                text(
-                    "ALTER TABLE archivedstepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"
-                )
-            )
+            conn.execute(text("ALTER TABLE archivedstepresult ADD COLUMN signal VARCHAR NOT NULL DEFAULT 'ok'"))
             if "success" in asr_cols:
-                conn.execute(
-                    text(
-                        "UPDATE archivedstepresult SET signal='fail' WHERE success=0 AND skipped=0"
-                    )
-                )
+                conn.execute(text("UPDATE archivedstepresult SET signal='fail' WHERE success=0 AND skipped=0"))
             conn.commit()
         if "success" in asr_cols:
             conn.execute(text("ALTER TABLE archivedstepresult DROP COLUMN success"))

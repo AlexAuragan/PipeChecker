@@ -27,7 +27,7 @@ def web_start_job(
     name: str,
     background_tasks: BackgroundTasks,
     manager: utils.ManagerDep,
-):
+) -> dict[str, str]:
     utils.get_pipeline_or_404(name, None)
     job_id = jobs.create_job(pipeline_name=name, source=JobSource.manual)
     background_tasks.add_task(utils.execute_job, job_id, name, manager)
@@ -39,7 +39,7 @@ def web_retry_job(
     job_id: UUID,
     background_tasks: BackgroundTasks,
     manager: utils.ManagerDep,
-):
+) -> dict[str, str]:
     pipeline_name = jobs.retry_job(job_id)
     if pipeline_name is None:
         raise HTTPException(status_code=409, detail="Job is not retryable.")
@@ -49,13 +49,13 @@ def web_retry_job(
 
 
 @router.post("/{job_id}/cancel", status_code=204)
-def web_cancel_job(job_id: UUID):
+def web_cancel_job(job_id: UUID) -> None:
     if not jobs.cancel_job(job_id):
         raise HTTPException(status_code=409, detail="Job is not cancellable.")
 
 
 @router.post("/{job_id}/delete", response_class=HTMLResponse)
-async def delete_job_route(request: Request, job_id: UUID):
+async def delete_job_route(request: Request, job_id: UUID) -> RedirectResponse:
     if not jobs.delete_job(job_id):
         raise HTTPException(
             status_code=409,
@@ -65,7 +65,7 @@ async def delete_job_route(request: Request, job_id: UUID):
 
 
 @router.get("/{job_id}", response_class=HTMLResponse)
-def job_page(request: Request, job_id: UUID):
+def job_page(request: Request, job_id: UUID) -> HTMLResponse:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -73,9 +73,7 @@ def job_page(request: Request, job_id: UUID):
     pipeline, group = utils.get_pipeline_or_404(job["pipeline_name"], None)
     columns = compute_columns(pipeline.pipeline)
     edges = build_edges(pipeline.pipeline)
-    non_leaf_branches = frozenset(
-        (req.step, req.branch) for step in pipeline.pipeline for req in step.requires
-    )
+    non_leaf_branches = frozenset((req.step, req.branch) for step in pipeline.pipeline for req in step.requires)
     step_map = {step.id: step for step in pipeline.pipeline}
 
     target_results = [
@@ -94,16 +92,8 @@ def job_page(request: Request, job_id: UUID):
                         "duration": s["duration"],
                         "stdout": s["stdout"] or "",
                         "stderr": s["stderr"] or "",
-                        "exec": (
-                            step_map[s["step_id"]].exec
-                            if s["step_id"] in step_map
-                            else ""
-                        ),
-                        "check_method": (
-                            step_map[s["step_id"]].check_method.value
-                            if s["step_id"] in step_map
-                            else ""
-                        ),
+                        "exec": (step_map[s["step_id"]].exec if s["step_id"] in step_map else ""),
+                        "check_method": (step_map[s["step_id"]].check_method.value if s["step_id"] in step_map else ""),
                         "is_branch": (s["step_id"], s["branch"]) in non_leaf_branches
                         and not s["skipped"]
                         and s["signal"] not in ("fail", "crashed"),

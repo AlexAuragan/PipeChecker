@@ -33,12 +33,12 @@ def _test_credentials():
 
 
 @pytest.fixture(scope="session")
-def api_key(_test_credentials) -> str:
+def api_key(_test_credentials: tuple[str, str, str]) -> str:
     return _test_credentials[0]
 
 
 @pytest.fixture(autouse=True)
-def isolated_config(tmp_path, monkeypatch, _test_credentials):
+def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _test_credentials: tuple[str, str, str]):
     """
     Redirect every path in src.config to a disposable tmp_path tree.
 

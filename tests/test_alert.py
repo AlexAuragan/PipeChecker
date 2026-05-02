@@ -21,7 +21,9 @@ from src.core import storage
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def _alert(name="test-alert", pipeline=None, on_signals=None) -> AlertConfig:
+def _alert(
+    name: str = "test-alert", pipeline: str | None = None, on_signals: list[Status] | None = None
+) -> AlertConfig:
     kwargs: dict[str, Any] = {"name": name}
     if pipeline is not None:
         kwargs["pipeline"] = pipeline
@@ -31,12 +33,12 @@ def _alert(name="test-alert", pipeline=None, on_signals=None) -> AlertConfig:
 
 
 def _sent(
-    alert_name="test-alert",
-    pipeline_name="my-pipeline",
-    target_id="100",
+    alert_name: str = "test-alert",
+    pipeline_name: str = "my-pipeline",
+    target_id: str = "100",
     target_name: str | None = "ct-100",
-    signal=Status.fail,
-    url=None,
+    signal: Status = Status.fail,
+    url: str | None = None,
 ) -> SentAlert:
     kwargs: dict[str, Any] = dict(
         alert_name=alert_name,
@@ -50,14 +52,12 @@ def _sent(
     return SentAlert(**kwargs)
 
 
-def _webhook(
-    name="my-hook", url="https://example.com/hook", **kwargs
-) -> WebhookConnector:
-    return WebhookConnector(name=name, url=url, **kwargs)
+def _webhook(name: str = "my-hook", url: str = "https://example.com/hook") -> WebhookConnector:
+    return WebhookConnector(name=name, url=url)
 
 
-def _rss(name="my-rss", feed_path="/tmp/test-feed.xml", **kwargs) -> RSSConnector:
-    return RSSConnector(name=name, feed_path=Path(feed_path), **kwargs)
+def _rss(name: str = "my-rss", feed_path: str = "/tmp/test-feed.xml") -> RSSConnector:
+    return RSSConnector(name=name, feed_path=Path(feed_path))
 
 
 # ── AlertConfig ───────────────────────────────────────────────────────────────
@@ -83,9 +83,7 @@ class TestAlertConfig:
             AlertConfig(name="x", on_signals=[])
 
     def test_multiple_signals(self):
-        a = AlertConfig(
-            name="x", on_signals=[Status.warning, Status.fail, Status.crashed]
-        )
+        a = AlertConfig(name="x", on_signals=[Status.warning, Status.fail, Status.crashed])
         assert len(a.on_signals) == 3
 
 
@@ -217,9 +215,7 @@ class TestLoadAlertConnectors:
         assert len(storage.load_alert_connectors()) == 2
 
     def test_type_preserved(self):
-        storage.save_alert_connector(
-            DiscordConnector(name="dc", url="https://discord.com/x")
-        )
+        storage.save_alert_connector(DiscordConnector(name="dc", url="https://discord.com/x"))
         [c] = storage.load_alert_connectors()
         assert isinstance(c, DiscordConnector)
 
@@ -317,12 +313,12 @@ class TestRender:
 
 
 class TestRSSConnector:
-    def test_creates_feed_file(self, tmp_path):
+    def test_creates_feed_file(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent())
         assert path.exists()
 
-    def test_feed_is_valid_rss(self, tmp_path):
+    def test_feed_is_valid_rss(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent())
         root = ET.parse(path).getroot()
@@ -330,23 +326,21 @@ class TestRSSConnector:
         assert root.find("channel") is not None
         assert root.find("channel/item") is not None
 
-    def test_item_title_uses_template(self, tmp_path):
+    def test_item_title_uses_template(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
-        RSSConnector(name="r", feed_path=path, title_template="TITLE-$signal").send(
-            _sent(signal=Status.fail)
-        )
+        RSSConnector(name="r", feed_path=path, title_template="TITLE-$signal").send(_sent(signal=Status.fail))
         title_elem = ET.parse(path).getroot().find("channel/item/title")
         assert title_elem is not None
         assert title_elem.text == "TITLE-fail"
 
-    def test_item_link_is_alert_url(self, tmp_path):
+    def test_item_link_is_alert_url(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent(url="http://host/job/123"))
         link_elem = ET.parse(path).getroot().find("channel/item/link")
         assert link_elem is not None
         assert link_elem.text == "http://host/job/123"
 
-    def test_second_send_prepends_newest(self, tmp_path):
+    def test_second_send_prepends_newest(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         c = RSSConnector(name="r", feed_path=path, title_template="$signal")
         c.send(_sent(signal=Status.warning))
@@ -357,28 +351,24 @@ class TestRSSConnector:
         assert t0.text == "fail"
         assert t1.text == "warning"
 
-    def test_max_items_enforced(self, tmp_path):
+    def test_max_items_enforced(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         c = RSSConnector(name="r", feed_path=path, max_items=2)
         for sig in (Status.ok, Status.warning, Status.fail):
             c.send(_sent(signal=sig))
         assert len(ET.parse(path).getroot().findall("channel/item")) == 2
 
-    def test_max_items_keeps_newest(self, tmp_path):
+    def test_max_items_keeps_newest(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
-        c = RSSConnector(
-            name="r", feed_path=path, max_items=2, title_template="$signal"
-        )
+        c = RSSConnector(name="r", feed_path=path, max_items=2, title_template="$signal")
         for sig in (Status.ok, Status.warning, Status.fail):
             c.send(_sent(signal=sig))
         titles = [
-            e.text
-            for i in ET.parse(path).getroot().findall("channel/item")
-            if (e := i.find("title")) is not None
+            e.text for i in ET.parse(path).getroot().findall("channel/item") if (e := i.find("title")) is not None
         ]
         assert "ok" not in titles
 
-    def test_creates_parent_dirs(self, tmp_path):
+    def test_creates_parent_dirs(self, tmp_path: Path):
         path = tmp_path / "deep" / "nested" / "feed.xml"
         RSSConnector(name="r", feed_path=path).send(_sent())
         assert path.exists()
@@ -476,7 +466,7 @@ class TestAlertConnectorSerialization:
         assert c2.url == c.url
         assert c2.body_template == c.body_template
 
-    def test_rss_roundtrip(self, tmp_path):
+    def test_rss_roundtrip(self, tmp_path: Path):
         path = tmp_path / "feed.xml"
         c = RSSConnector(name="rss", feed_path=path, max_items=10)
         c2 = AlertConnector.from_str(c.to_str())
