@@ -104,10 +104,20 @@ def _parse_check_patterns(form: FormData, i: int) -> list[str] | None:
     return patterns if patterns else None
 
 
-def _parse_branches(form: FormData, i: int) -> list[dict[str, Any]]:
+def _parse_branches(form: FormData, i: int, patterns: list[str] | None) -> list[dict[str, Any]]:
     names = [v.strip() for k, v in form.multi_items() if k == f"step_branch_names_{i}" and isinstance(v, str)]
     signals = [v.strip() for k, v in form.multi_items() if k == f"step_branch_signals_{i}" and isinstance(v, str)]
-    return [{"name": n, "signal": s or "ok"} for n, s in zip(names, signals)]
+    pairs = list(zip(names, signals))
+    # The hidden branch section (binary or pattern) always submits its inputs too.
+    # For pattern steps: binary inputs land first (2 pairs), real data follows.
+    # For binary steps: at most 2 pairs are valid.
+    if patterns is not None:
+        expected = len(patterns) + 1  # one per pattern + no-match
+        if len(pairs) > expected:
+            pairs = pairs[len(pairs) - expected :]
+    else:
+        pairs = pairs[:2]
+    return [{"name": n, "signal": s or "ok"} for n, s in pairs]
 
 
 def steps_from_form(form: FormData) -> list[tuple[int, dict[str, Any]]]:
@@ -130,7 +140,7 @@ def steps_from_form(form: FormData) -> list[tuple[int, dict[str, Any]]]:
                     "exec": exec_command if exec_method == "command" else exec_script,
                     "check_method": form.get(f"step_check_method_{i}", "exit_code"),
                     "check_patterns": _parse_check_patterns(form, i) or [],
-                    "branches": _parse_branches(form, i),
+                    "branches": _parse_branches(form, i, _parse_check_patterns(form, i)),
                     "requires": [_parse_requires_entry(r) for r in requires_raw],
                 },
             )
@@ -168,8 +178,8 @@ def parse_pipeline_form(form: FormData) -> tuple[str, Pipeline]:
                 "exec": exec_val,
                 "exec_method": exec_method,
                 "check_method": form.get(f"step_check_method_{i}") or "exit_code",
-                "check_patterns": _parse_check_patterns(form, i),
-                "branches": _parse_branches(form, i),
+                "check_patterns": (patterns := _parse_check_patterns(form, i)),
+                "branches": _parse_branches(form, i, patterns),
                 "requires": [_parse_requires_entry(r) for r in requires_raw],
             }
         )

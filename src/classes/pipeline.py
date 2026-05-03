@@ -33,6 +33,18 @@ class PipelineStep(BaseModel):
         return Status.fail if branch == len(self.check_patterns) else Status.ok
 
     @model_validator(mode="after")
+    def validate_branch_count(self) -> "PipelineStep":
+        if not self.branches:
+            return self
+        if self.check_patterns is None:
+            expected = 2
+        else:
+            expected = len(self.check_patterns) + 1
+        if len(self.branches) != expected:
+            raise ValueError(f"Step '{self.id}': expected {expected} branches " f"({len(self.branches)} provided)")
+        return self
+
+    @model_validator(mode="after")
     def validate_exec_script(self) -> "PipelineStep":
         if self.exec_method == ExecMethod.script:
             from src.config import SCRIPTS_FOLDER
