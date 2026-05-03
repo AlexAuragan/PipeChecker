@@ -98,7 +98,7 @@
       <input type="hidden" name="type" value="{{ form_data.type }}">
       <input type="text" value="{{ form_data.type }}" readonly>
       {% else %}
-      <select name="type" id="ac-type" onchange="onTypeChange()">
+      <select name="type" id="ac-type">
         {% for t in all_types %}
         <option value="{{ t.value }}" {% if form_data.type == t.value %}selected{% endif %}>{{ t.value }}</option>
         {% endfor %}
@@ -108,7 +108,8 @@
   </div>
 
   {# ── RSS settings ─────────────────────────────────────────────────────── #}
-  <div id="section-rss" class="form-card">
+  <div id="section-rss" class="form-card"
+    {% if form_data.type != "rss" %}style="display:none"{% endif %}>
     <h2>RSS SETTINGS</h2>
 
     <div class="field">
@@ -139,23 +140,24 @@
     </div>
   </div>
 
-  {# ── Webhook / Discord settings ───────────────────────────────────────── #}
-  <div id="section-webhook" class="form-card">
-    <h2 id="webhook-section-title">WEBHOOK SETTINGS</h2>
-
+  {# ── Webhook settings ──────────────────────────────────────────────────── #}
+  <div id="section-webhook" class="form-card"
+    {% if form_data.type != "webhook" %}style="display:none"{% endif %}>
+    <h2>WEBHOOK SETTINGS</h2>
+  
     <div class="field">
       <label>URL <span style="color:var(--r)">*</span></label>
       <input type="text" name="url" value="{{ form_data.url }}"
         placeholder="https://hooks.example.com/…">
     </div>
-
+  
     <div class="field">
       <label>Body template <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
       <textarea name="body_template"
         placeholder='{"text": "[$signal] $pipeline_name / $target_name — $url"}'>{{ form_data.body_template }}</textarea>
-      <span class="hint">JSON with $variable placeholders. Available: $alert_name, $pipeline_name, $target_id, $target_name, $signal, $url, $triggered_at</span>
+      <span class="hint">Raw JSON with $variable placeholders.</span>
     </div>
-
+  
     <div class="field">
       <label>Custom headers <span style="font-weight:400; text-transform:none; letter-spacing:0">(optional)</span></label>
       <div id="header-list">
@@ -175,6 +177,25 @@
       <button type="button" class="btn-sm" onclick="addHeader()" style="margin-top:4px">+ Add Header</button>
     </div>
   </div>
+  
+  {# ── Discord settings ──────────────────────────────────────────────────── #}
+  <div id="section-discord" class="form-card"
+    {% if form_data.type != "discord" %}style="display:none"{% endif %}>
+    <h2>DISCORD SETTINGS</h2>
+  
+    <div class="field">
+      <label>Discord webhook URL <span style="color:var(--r)">*</span></label>
+      <input type="text" name="url" value="{{ form_data.url }}"
+        placeholder="https://discord.com/api/webhooks/…">
+    </div>
+  
+    <div class="field">
+      <label>Message template <span style="font-weight:400; text-transform:none; letter-spacing:0">(Markdown supported)</span></label>
+      <textarea name="discord_message_template"
+        placeholder="**[$signal]** $pipeline_name / $target_name&#10;$url">{{ form_data.discord_message_template or form_data.body_template }}</textarea>
+      <span class="hint">Discord supports Markdown here. Variables: $alert_name, $pipeline_name, $target_id, $target_name, $signal, $url, $triggered_at</span>
+    </div>
+  </div>
 
   <div class="actions">
     <button type="submit">{% if editing %}Save changes{% else %}Create connector{% endif %}</button>
@@ -184,15 +205,22 @@
 </form>
 
 <script>
-const CURRENT_TYPE = {{ form_data.type.value | tojson }};
+const CURRENT_TYPE = {{ (form_data.type or "rss") | tojson | safe }};
+function getSelectedType() {
+  const select = document.getElementById('ac-type');
+  return select ? select.value : CURRENT_TYPE;
+}
 
 function onTypeChange() {
-  const t = document.getElementById('ac-type')
-    ? document.getElementById('ac-type').value
-    : CURRENT_TYPE;
-  document.getElementById('section-rss').style.display     = (t === 'rss') ? '' : 'none';
-  document.getElementById('section-webhook').style.display = (t !== 'rss') ? '' : 'none';
-  document.getElementById('webhook-section-title').textContent = (t === 'discord') ? 'DISCORD SETTINGS' : 'WEBHOOK SETTINGS';
+  const t = getSelectedType();
+
+  const rssSection = document.getElementById('section-rss');
+  const webhookSection = document.getElementById('section-webhook');
+  const discordSection = document.getElementById('section-discord');
+
+  rssSection.style.display = t === 'rss' ? '' : 'none';
+  webhookSection.style.display = t === 'webhook' ? '' : 'none';
+  discordSection.style.display = t === 'discord' ? '' : 'none';
 }
 
 function addHeader() {
@@ -215,5 +243,7 @@ function checkHeaderEmpty() {
 }
 
 document.addEventListener('DOMContentLoaded', onTypeChange);
+const typeSelect = document.getElementById('ac-type');
+if (typeSelect) typeSelect.addEventListener('change', onTypeChange);
 </script>
 {% endblock %}
