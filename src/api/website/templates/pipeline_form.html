@@ -548,6 +548,10 @@
     const isPattern = PATTERN_METHODS.includes(sel.value);
     document.getElementById('binary-branches-' + idx).style.display = isPattern ? 'none' : '';
     document.getElementById('pattern-branches-' + idx).style.display = isPattern ? '' : 'none';
+    const binFs = document.getElementById('binary-fieldset-' + idx);
+    const patFs = document.getElementById('pattern-fieldset-' + idx);
+    if (binFs) binFs.disabled = isPattern;
+    if (patFs) patFs.disabled = !isPattern;
     updateRequiresGroups();
   }
 

@@ -97,34 +97,39 @@
     <div class="form-group" id="binary-branches-{{ idx }}"
          style="grid-column: span 3{% if show_patterns %}; display:none{% endif %}">
       <label>Branch signals</label>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
-        <div style="display:flex; align-items:center; gap:6px">
-          <span class="branch-badge">0</span>
-          <input type="text" name="step_branch_names_{{ idx }}"
-                 data-binary-branch="0"
-                 value="{{ branches_list[0].name if branches_list | length > 0 else '' }}"
-                 placeholder="pass"
-                 style="flex:1"
-                 oninput="onBranchDataChange({{ idx }})">
-          {{ signal_select(idx, 0, 'ok') }}
+      <fieldset id="binary-fieldset-{{ idx }}" style="border:none;margin:0;padding:0"
+                {% if show_patterns %}disabled{% endif %}>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+          <div style="display:flex; align-items:center; gap:6px">
+            <span class="branch-badge">0</span>
+            <input type="text" name="step_branch_names_{{ idx }}"
+                   data-binary-branch="0"
+                   value="{{ branches_list[0].name if branches_list | length > 0 else '' }}"
+                   placeholder="pass"
+                   style="flex:1"
+                   oninput="onBranchDataChange({{ idx }})">
+            {{ signal_select(idx, 0, 'ok') }}
+          </div>
+          <div style="display:flex; align-items:center; gap:6px">
+            <span class="branch-badge branch-badge-dim">1</span>
+            <input type="text" name="step_branch_names_{{ idx }}"
+                   data-binary-branch="1"
+                   value="{{ branches_list[1].name if branches_list | length > 1 else '' }}"
+                   placeholder="fail"
+                   style="flex:1"
+                   oninput="onBranchDataChange({{ idx }})">
+            {{ signal_select(idx, 1, 'fail') }}
+          </div>
         </div>
-        <div style="display:flex; align-items:center; gap:6px">
-          <span class="branch-badge branch-badge-dim">1</span>
-          <input type="text" name="step_branch_names_{{ idx }}"
-                 data-binary-branch="1"
-                 value="{{ branches_list[1].name if branches_list | length > 1 else '' }}"
-                 placeholder="fail"
-                 style="flex:1"
-                 oninput="onBranchDataChange({{ idx }})">
-          {{ signal_select(idx, 1, 'fail') }}
-        </div>
-      </div>
+      </fieldset>
     </div>
 
     {# Pattern branches — shown for pattern check methods #}
     <div class="form-group" id="pattern-branches-{{ idx }}"
          style="grid-column: span 3{% if not show_patterns %}; display:none{% endif %}">
       <label>Branches <span style="color:var(--r)">*</span></label>
+      <fieldset id="pattern-fieldset-{{ idx }}" style="border:none;margin:0;padding:0"
+                {% if not show_patterns %}disabled{% endif %}>
       <div id="patterns-list-{{ idx }}">
         {% if check_patterns %}
           {% for pat in check_patterns %}
@@ -197,6 +202,7 @@
       </div>
       <button type="button" class="btn-sm" style="margin-top:6px"
               onclick="addPatternBranch({{ idx }})">+ Add Branch</button>
+      </fieldset>
     </div>
 
     {# ── Dependencies ────────────────────────────────────────────────────────── #}
