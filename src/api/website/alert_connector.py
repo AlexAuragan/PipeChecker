@@ -95,7 +95,7 @@ def alert_connectors_page(request: Request) -> HTMLResponse:
 
 @router.get("/new", response_class=HTMLResponse)
 def new_alert_connector_page(request: Request) -> HTMLResponse:
-    form_data = {
+    form_data: dict[str, str | dict[str, str]] = {
         "name": "",
         "type": AlertConnectorType.webhook.value,
         "feed_path": "",

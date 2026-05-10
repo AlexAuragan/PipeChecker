@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from string import Template
-from typing import Literal, cast
+from typing import Literal
 from xml.etree import ElementTree as ET
 
 import yaml

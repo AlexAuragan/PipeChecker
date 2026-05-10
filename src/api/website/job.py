@@ -28,7 +28,7 @@ def web_start_job(
     background_tasks: BackgroundTasks,
     manager: utils.ManagerDep,
 ) -> dict[str, str]:
-    utils.get_pipeline_or_404(name, None)
+    _ = utils.get_pipeline_or_404(name, None)
     job_id = jobs.create_job(pipeline_name=name, source=JobSource.manual)
     background_tasks.add_task(utils.execute_job, job_id, name, manager)
     return {"job_id": str(job_id)}

@@ -3,7 +3,7 @@ from collections.abc import ItemsView, Iterator, KeysView, ValuesView
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import yaml
 from pydantic import (
@@ -111,7 +111,7 @@ class Connector(BaseModel, ABC):
         pass
 
     def load_targets(self) -> None:
-        self._targets: list[target.Target] = []
+        self._targets = []
         for cp, cu, cs in zip_longest(self.config_path, self.config_url, self.config_ssh):
             self._targets += self.single_init(config_path=cp, config_url=cu, config_ssh=cs)
 
@@ -125,6 +125,7 @@ class Connector(BaseModel, ABC):
             raise RuntimeError(f"Connector '{self.name}' failed to load targets: {self._load_error}")
         if self._targets is None:
             self.load_targets()
+        assert self._targets is not None
         return self._targets
 
     def to_str(self) -> str:

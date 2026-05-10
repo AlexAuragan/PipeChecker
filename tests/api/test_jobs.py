@@ -113,7 +113,7 @@ class TestStartJob:
     def test_returns_202_and_uuid(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/{PIPELINE_NAME}")
         assert r.status_code == 202
-        UUID(r.json()["job_id"])  # raises if not a valid UUID
+        _ = UUID(r.json()["job_id"])  # raises if not a valid UUID
 
     def test_unknown_pipeline_returns_404(self, client: TestClient) -> None:
         r = client.post(f"{PREFIX}/nonexistent")
