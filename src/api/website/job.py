@@ -109,9 +109,11 @@ def job_page(request: Request, job_id: UUID) -> HTMLResponse:
 
     status_counts = {"green": 0, "orange": 0, "red": 0, "warning": 0, "update": 0}
     for tr in target_results:
-        status_counts[signal_group(tr["t_status"])] += 1
-        if tr["t_status"] in ("warning", "update"):
-            status_counts[tr["t_status"]] += 1
+        t_status = tr["t_status"]
+        if t_status in ("warning", "update"):
+            status_counts[t_status] += 1
+        else:
+            status_counts[signal_group(t_status)] += 1
 
     is_live = job["status"] in ("pending", "running")
     crash_reason = job.get("crash_reason")
