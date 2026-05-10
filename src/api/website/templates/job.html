@@ -123,16 +123,20 @@
 
   {% if total > 1 %}
   <div class="filter-block">
-    <input type="radio" name="tfilter" id="tf-all"    checked hidden>
-    <input type="radio" name="tfilter" id="tf-green"  hidden>
-    <input type="radio" name="tfilter" id="tf-orange" hidden>
-    <input type="radio" name="tfilter" id="tf-red"    hidden>
+    <input type="radio" name="tfilter" id="tf-all"     checked hidden>
+    <input type="radio" name="tfilter" id="tf-green"   hidden>
+    <input type="radio" name="tfilter" id="tf-update"  hidden>
+    <input type="radio" name="tfilter" id="tf-warning" hidden>
+    <input type="radio" name="tfilter" id="tf-orange"  hidden>
+    <input type="radio" name="tfilter" id="tf-red"     hidden>
 
     <div class="filter-bar">
-      <label for="tf-all"    class="ftab">All ({{ total }})</label>
-      <label for="tf-green"  class="ftab {% if status_counts.green  == 0 %}ftab-zero{% endif %}">✓ Passed ({{ status_counts.green }})</label>
-      <label for="tf-orange" class="ftab {% if status_counts.orange == 0 %}ftab-zero{% endif %}">~ Fixed ({{ status_counts.orange }})</label>
-      <label for="tf-red"    class="ftab {% if status_counts.red    == 0 %}ftab-zero{% endif %}">✗ Failed ({{ status_counts.red }})</label>
+      <label for="tf-all"     class="ftab">All ({{ total }})</label>
+      <label for="tf-green"   class="ftab {% if status_counts.green   == 0 %}ftab-zero{% endif %}">✓ Passed ({{ status_counts.green }})</label>
+      <label for="tf-update"  class="ftab {% if status_counts.update  == 0 %}ftab-zero{% endif %}">↑ Updated ({{ status_counts.update }})</label>
+      <label for="tf-warning" class="ftab {% if status_counts.warning == 0 %}ftab-zero{% endif %}">⚠ Warning ({{ status_counts.warning }})</label>
+      <label for="tf-orange"  class="ftab {% if status_counts.orange  == 0 %}ftab-zero{% endif %}">~ Fixed ({{ status_counts.orange }})</label>
+      <label for="tf-red"     class="ftab {% if status_counts.red     == 0 %}ftab-zero{% endif %}">✗ Failed ({{ status_counts.red }})</label>
     </div>
 
     <div class="targets-list">
@@ -142,7 +146,7 @@
       {% set step_results     = tr.step_results %}
       {% set step_results_json = tr.step_results_json %}
       {% set duration         = tr.duration %}
-      <div class="target-section ts-{{ signal_group(t_status) }}">
+      <div class="target-section ts-{{ signal_group(t_status) }} ts-s-{{ t_status.value }}">
         {% include "_target_body.html" %}
       </div>
       {% endfor %}

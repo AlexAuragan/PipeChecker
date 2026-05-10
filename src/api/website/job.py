@@ -1,13 +1,13 @@
 import json
 from uuid import UUID
 
-from fastapi import Request, HTTPException, APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.api import utils
 from src.api.web_auth import require_web_auth
-from src.api.website.utils import compute_columns, build_edges, templates
+from src.api.website.utils import build_edges, compute_columns, templates
 from src.core import jobs
 from src.core.database import JobSource
 
@@ -107,11 +107,13 @@ def job_page(request: Request, job_id: UUID) -> HTMLResponse:
 
     from src.api.website.utils import signal_group
 
-    status_counts = {"green": 0, "orange": 0, "red": 0}
+    status_counts = {"green": 0, "orange": 0, "red": 0, "warning": 0, "update": 0}
     for tr in target_results:
         status_counts[signal_group(tr["t_status"])] += 1
+        if tr["t_status"] in ("warning", "update"):
+            status_counts[tr["t_status"]] += 1
 
-    is_live = str(job["status"].value) in ("pending", "running")
+    is_live = job["status"] in ("pending", "running")
     crash_reason = job.get("crash_reason")
     is_ssh_error = bool(crash_reason and any(m in crash_reason for m in _SSH_MARKERS))
     phase = job.get("phase")

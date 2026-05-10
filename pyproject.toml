@@ -29,7 +29,6 @@ packages = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
 [tool.basedpyright]
 # Pydantic discriminated unions: Literal[X] overriding EnumType is intentional
 reportIncompatibleVariableOverride = "hint"
