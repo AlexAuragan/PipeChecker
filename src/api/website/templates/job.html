@@ -129,6 +129,7 @@
     <input type="radio" name="tfilter" id="tf-warning" hidden>
     <input type="radio" name="tfilter" id="tf-orange"  hidden>
     <input type="radio" name="tfilter" id="tf-red"     hidden>
+    <input type="radio" name="tfilter" id="tf-gray"    hidden>
 
     <div class="filter-bar">
       <label for="tf-all"     class="ftab">All ({{ total }})</label>
@@ -137,6 +138,7 @@
       <label for="tf-warning" class="ftab {% if status_counts.warning == 0 %}ftab-zero{% endif %}">⚠ Warning ({{ status_counts.warning }})</label>
       <label for="tf-orange"  class="ftab {% if status_counts.orange  == 0 %}ftab-zero{% endif %}">~ Fixed ({{ status_counts.orange }})</label>
       <label for="tf-red"     class="ftab {% if status_counts.red     == 0 %}ftab-zero{% endif %}">✗ Failed ({{ status_counts.red }})</label>
+      <label for="tf-gray"    class="ftab {% if status_counts.gray    == 0 %}ftab-zero{% endif %}">– Skipped ({{ status_counts.gray }})</label>
     </div>
 
     <div class="targets-list">

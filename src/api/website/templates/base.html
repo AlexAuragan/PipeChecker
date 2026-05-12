@@ -434,7 +434,8 @@
     #tf-update:checked  ~ .filter-bar label[for="tf-update"],
     #tf-warning:checked ~ .filter-bar label[for="tf-warning"],
     #tf-orange:checked  ~ .filter-bar label[for="tf-orange"],
-    #tf-red:checked     ~ .filter-bar label[for="tf-red"] {
+    #tf-red:checked     ~ .filter-bar label[for="tf-red"],
+    #tf-gray:checked    ~ .filter-bar label[for="tf-gray"] {
       background: var(--ink);
       color: var(--surface);
       box-shadow: 3px 3px 0 var(--accent);
@@ -442,11 +443,12 @@
     }
 
     /* filter visibility */
-    #tf-green:checked   ~ .targets-list .target-section:not(.ts-green)      { display: none; }
-    #tf-update:checked  ~ .targets-list .target-section:not(.ts-s-update)   { display: none; }
-    #tf-warning:checked ~ .targets-list .target-section:not(.ts-s-warning)  { display: none; }
+    #tf-green:checked   ~ .targets-list .target-section:not(.ts-green)       { display: none; }
+    #tf-update:checked  ~ .targets-list .target-section:not(.ts-s-update)    { display: none; }
+    #tf-warning:checked ~ .targets-list .target-section:not(.ts-s-warning)   { display: none; }
     #tf-orange:checked  ~ .targets-list .target-section:not(.ts-s-installed) { display: none; }
-    #tf-red:checked     ~ .targets-list .target-section:not(.ts-red)        { display: none; }
+    #tf-red:checked     ~ .targets-list .target-section:not(.ts-red)         { display: none; }
+    #tf-gray:checked    ~ .targets-list .target-section:not(.ts-gray)        { display: none; }
 
     /* ── breadcrumb ─────────────────────────────────────────────── */
     .breadcrumb { font-size: 12px; color: var(--ink-light); margin-bottom: 24px; }
