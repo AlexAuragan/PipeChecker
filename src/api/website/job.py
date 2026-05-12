@@ -107,7 +107,7 @@ def job_page(request: Request, job_id: UUID) -> HTMLResponse:
 
     from src.api.website.utils import signal_group
 
-    status_counts = {"green": 0, "orange": 0, "red": 0, "warning": 0, "update": 0}
+    status_counts = {"green": 0, "gray": 0, "orange": 0, "red": 0, "warning": 0, "update": 0}
     for tr in target_results:
         t_status = tr["t_status"]
         if t_status in ("warning", "update"):
