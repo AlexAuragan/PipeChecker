@@ -253,6 +253,7 @@ def build_edges(steps: list[PipelineStep]) -> str:
 
 
 _SIGNAL_GROUP = {
+    "skipped": "gray",
     "ok": "green",
     "update": "orange",
     "installed": "orange",
@@ -277,6 +278,7 @@ def status_badge(status: Any) -> str:
         "running": "badge-blue",
         "pending": "badge-gray",
         "cancelled": "badge-gray",
+        "skipped": "badge-gray",
         "ok": "badge-green",
         "update": "badge-blue",
         "installed": "badge-purple",
@@ -288,6 +290,7 @@ def status_badge(status: Any) -> str:
 
 # Maps Status enum values to CSS utility classes used in templates.
 _SIGNAL_CLASS = {
+    "skipped": "status-skipped",
     "ok": "status-green",
     "update": "status-running",
     "installed": "status-installed",
@@ -296,6 +299,7 @@ _SIGNAL_CLASS = {
     "crashed": "status-red",
 }
 _SIGNAL_BADGE = {
+    "skipped": "badge-gray",
     "ok": "badge-green",
     "update": "badge-blue",
     "installed": "badge-purple",

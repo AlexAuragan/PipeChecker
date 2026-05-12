@@ -245,6 +245,7 @@ class Proxmox(Connector):
                     pct_ip=IPv4Address(pct_info["ip"]),
                     pct_name=pct["Name"],
                     pct_status=pct["Status"],
+                    status=pct["Status"],
                     node_name=hostname,
                     node_ip=IPv4Address(config_ssh.split("@")[1]),
                     ostype=pct_info["ostype"],

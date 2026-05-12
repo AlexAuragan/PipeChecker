@@ -3,16 +3,6 @@ from dataclasses import dataclass
 from src.classes.enums import Status
 from src.classes.target import Target
 
-_SEVERITY: dict[Status, int] = {
-    Status.ok: 0,
-    Status.update: 1,
-    Status.installed: 2,
-    Status.warning: 3,
-    Status.fail: 4,
-    Status.crashed: 5,
-}
-
-
 @dataclass
 class StepResult:
     target_id: str
@@ -36,5 +26,5 @@ class PipelineResult:
     def status(self) -> Status:
         signals = [s.signal for s in self.steps.values() if not s.skipped]
         if not signals:
-            return Status.ok
-        return max(signals, key=lambda s: _SEVERITY[s])
+            return Status.skipped
+        return max(signals, key=lambda s: s.severity)

@@ -173,6 +173,18 @@ class PCTRunner(RemoteLinuxRunner):
     def __init__(self, target: t.ProxmoxCT, pipeline: p.Pipeline):
         super().__init__(target, pipeline)
 
+    @override
+    def run_pipeline(self) -> r.PipelineResult:
+        if self.target.status != "running":
+            steps = {step.id: self._skip_step(step) for step in self.pipeline.pipeline}
+            return r.PipelineResult(
+                target=self.target,
+                pipeline_name=self.pipeline.name,
+                steps=steps,
+                duration=0,
+            )
+        return super().run_pipeline()
+
     def _exec_command(self, command: str) -> tuple[str, str, int, float]:
         return utils.execute_on_ct(self.target, command)
 

@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from ipaddress import IPv4Address
 from typing import Any
 
+from typing_extensions import Literal
+
 
 @dataclass
 class Target(ABC):
@@ -48,6 +50,7 @@ class ProxmoxCT(Target):
     node_ip: IPv4Address
     pct_status: str
     ostype: str
+    status: Literal["running", "stopped", "starting", "shutting down"]
 
     @property
     def ssh_addr(self) -> str:
@@ -67,6 +70,7 @@ class ProxmoxCT(Target):
             "node_name": self.node_name,
             "node_ip": str(self.node_ip),
             "pct_status": self.pct_status,
+            "status": self.status,
             "ostype": self.ostype,
         }
 

@@ -2,12 +2,19 @@ from enum import Enum
 
 
 class Status(str, Enum):
-    ok = "ok"
-    update = "update"
-    installed = "installed"
-    warning = "warning"
-    fail = "fail"
-    crashed = "crashed"
+    def __new__(cls, value: str, severity: int):
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        obj.severity = severity  # type: ignore[attr-defined]
+        return obj
+
+    skipped  = ("skipped",  -1)
+    ok       = ("ok",        0)
+    update   = ("update",    1)
+    installed = ("installed", 2)
+    warning  = ("warning",   3)
+    fail     = ("fail",      4)
+    crashed  = ("crashed",   5)
 
 
 class ConnectorType(str, Enum):
