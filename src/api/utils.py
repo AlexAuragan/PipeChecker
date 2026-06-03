@@ -107,12 +107,12 @@ def load_and_init() -> Manager:
 
 
 def _ensure_targets_loaded(pipeline: Pipeline, manager: Manager) -> None:
-    """Load targets for any connector in this pipeline that hasn't been loaded yet."""
+    """Load (or reload) targets for any connector in this pipeline that needs it."""
     for connector_name in pipeline.connectors:
         if connector_name not in manager:
             continue
         connector = manager.get(connector_name)
-        if not connector.is_loaded:
+        if not connector.is_loaded or connector.needs_reload():
             connector.load_targets()
 
 
@@ -265,7 +265,11 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
 
         pipeline = pipelines[pipeline_name]
 
-        needs_loading = any(not manager.get(c).is_loaded for c in pipeline.connectors if c in manager)
+        needs_loading = any(
+            not manager.get(c).is_loaded or manager.get(c).needs_reload()
+            for c in pipeline.connectors
+            if c in manager
+        )
         if needs_loading:
             jobs.set_job_phase(job_id, "Loading targets…")
             await asyncio.to_thread(_ensure_targets_loaded, pipeline, manager)

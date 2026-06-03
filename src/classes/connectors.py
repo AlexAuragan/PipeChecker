@@ -110,6 +110,11 @@ class Connector(BaseModel, ABC):
         """Fetch targets from one config source. Exactly one argument will be non-None."""
         pass
 
+    @abstractmethod
+    def needs_reload(self) -> bool:
+        """Return True if targets should be re-fetched before the next run."""
+        pass
+
     def load_targets(self) -> None:
         self._targets = []
         for cp, cu, cs in zip_longest(self.config_path, self.config_url, self.config_ssh):
@@ -146,6 +151,9 @@ class Caddy(Connector):
     type: Literal[ConnectorType.caddy] = ConnectorType.caddy
     config_path: list[str] = ["/etc/caddy/Caddyfile"]
 
+    def needs_reload(self) -> bool:
+        return True
+
     def single_init(
         self,
         config_path: str | Path | None = None,
@@ -176,6 +184,9 @@ class LinuxMachine(Connector):
             data["config_url"] = []
         return data
 
+    def needs_reload(self) -> bool:
+        return True
+
     def single_init(
         self,
         config_path: str | Path | None = None,
@@ -205,6 +216,18 @@ class Proxmox(Connector):
             data["config_path"] = []
             data["config_url"] = []
         return data
+
+    def needs_reload(self) -> bool:
+        if self._targets is None:
+            return True
+        for cs in self.config_ssh:
+            node_ip = IPv4Address(cs.split("@")[1])
+            node_ids = {t.pct_id for t in self._targets if t.node_ip == node_ip}
+            stdout = utils.execute_on_machine(cs, "pct list")
+            remote_ids = {pct["VMID"] for pct in parse_table(stdout)}
+            if node_ids != remote_ids:
+                return True
+        return False
 
     def single_init(
         self,
