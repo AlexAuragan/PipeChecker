@@ -63,16 +63,22 @@
       gap: 32px;
     }
     .logo {
-      color: var(--accent);
+      color: var(--ink);
       display: flex;
       align-items: center;
+      gap: 10px;
       text-decoration: none;
     }
 
-    .logo img {
+    .logo-icon {
+      width: 43px;
       height: 48px;
-      width: auto;
-      display: block;
+      flex-shrink: 0;
+
+      background-color: currentColor;
+
+      mask: url("/assets/logo.svg") center / contain no-repeat;
+      -webkit-mask: url("/assets/logo.svg") center / contain no-repeat;
     }
     nav a { color: var(--ink-mid); text-decoration: none; font-size: 13px; font-weight: 500; }
     nav a:hover { color: var(--accent); }
@@ -583,8 +589,8 @@
 <body>
   <nav>
     <a href="/" class="logo">
-      <img src="{{ url_for('assets', path='logo.svg') }}" alt="">
-      <span>PIPECHECKER</span>
+        <span class="logo-icon" aria-hidden="true"></span>
+        <span>PIPECHECKER</span>
     </a>
     <a href="/">Pipelines</a>
     <a href="/connector">Connectors</a>
