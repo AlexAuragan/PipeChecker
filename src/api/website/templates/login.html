@@ -49,6 +49,16 @@
       display: block;
       margin-bottom: 28px;
     }
+    .logo-icon {
+      width: 43px;
+      height: 48px;
+      flex-shrink: 0;
+
+      background-color: currentColor;
+
+      mask: url("/assets/logo.svg") center / contain no-repeat;
+      -webkit-mask: url("/assets/logo.svg") center / contain no-repeat;
+    }
     h1 {
       font-size: 18px;
       font-weight: 800;
@@ -121,6 +131,10 @@
 </head>
 <body>
   <div class="card">
+      <div class="logo">
+          <span class="logo-icon" aria-hidden="true"></span>
+          <span>PIPECHECKER</span>
+      </div>
     <span class="logo">PIPECHECKER</span>
     <h1>Sign in</h1>
 
