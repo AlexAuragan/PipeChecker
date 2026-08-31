@@ -3,9 +3,9 @@ from collections.abc import Callable
 from src.classes import RunnerType
 from src.classes.connectors import Manager
 from src.classes.pipeline import Pipeline
-from src.classes.runner import Runner, PCTRunner, LinuxMachineRunner
-from src.classes.target import Target, ProxmoxCT, RemoteLinuxMachine
 from src.classes.results import PipelineResult
+from src.classes.runner import LinuxMachineRunner, PCTRunner, Runner
+from src.classes.target import ProxmoxCT, RemoteLinuxMachine, Target
 
 
 def get_runner(pipeline: Pipeline, target: Target) -> Runner:

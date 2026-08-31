@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from src.classes.enums import Status
 from src.classes.target import Target
 
+
 @dataclass
 class StepResult:
     target_id: str
@@ -19,7 +20,7 @@ class StepResult:
 class PipelineResult:
     target: Target
     pipeline_name: str
-    steps: dict[str, "StepResult"]
+    steps: dict[str, StepResult]
     duration: float
 
     @property

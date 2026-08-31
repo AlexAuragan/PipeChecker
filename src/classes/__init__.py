@@ -1,7 +1,7 @@
 import src.classes.connectors as _connectors
 from src.classes.connectors import ConnectorType
 from src.classes.enums import RunnerType
-from src.classes.runner import LinuxMachineRunner, PCTRunner, Runner, RemoteLinuxRunner
+from src.classes.runner import LinuxMachineRunner, PCTRunner, RemoteLinuxRunner, Runner
 
 connectors: dict[str, type[_connectors.Connector]] = {
     "Proxmox": _connectors.Proxmox,
@@ -17,12 +17,12 @@ CONNECTOR_RUNNER_MAP: dict[ConnectorType, RunnerType] = {
 
 
 __all__ = [
-    "connectors",
-    "ConnectorType",
     "CONNECTOR_RUNNER_MAP",
-    "RunnerType",
-    "Runner",
-    "RemoteLinuxRunner",
+    "ConnectorType",
     "LinuxMachineRunner",
     "PCTRunner",
+    "RemoteLinuxRunner",
+    "Runner",
+    "RunnerType",
+    "connectors",
 ]

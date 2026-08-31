@@ -2,7 +2,6 @@
 
 import base64
 import shlex
-import socket
 import time
 from pathlib import Path
 
@@ -71,7 +70,7 @@ def execute_on_machine(config_ssh: str, command: str, return_error: bool = False
         if stderr_str or exit_code:
             raise RuntimeError(f"Error while executing `{command}` on remote {config_ssh}", stderr_str)
         return stdout_str
-    except socket.timeout:
+    except TimeoutError:
         raise RuntimeError(f"Timeout executing `{command}` on remote {config_ssh}")
     except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
@@ -134,7 +133,7 @@ def _execute_helper(
             stdout_str = stdout_str.split(token, 1)[1].lstrip("\n")
         exit_code = stdout.channel.recv_exit_status()
         return stdout_str, stderr_str, exit_code
-    except socket.timeout:
+    except TimeoutError:
         raise RuntimeError(f"Timeout executing `{command}` on CT {pct_id} via {node_ssh}")
     except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided
@@ -164,7 +163,7 @@ def execute_on_linux(target: t.RemoteLinuxMachine, command: str, timeout: int = 
         exit_code = stdout.channel.recv_exit_status()
         duration = time.time() - start
         return stdout_str, stderr_str, exit_code, duration
-    except socket.timeout:
+    except TimeoutError:
         raise RuntimeError(f"Timeout executing `{command}` on machine {target.hostname} via {target.ssh_addr}")
     except paramiko.AuthenticationException as e:
         # Can happen with password-only auth when no password is provided

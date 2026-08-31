@@ -206,16 +206,16 @@ def get_pipeline_or_404(name: str, group: str | None) -> tuple[Pipeline, str]:
 
 ## Jobs
 # Deferred to avoid a circular import (jobs/run import from classes which import from api).
-from typing import TYPE_CHECKING  # noqa: E402
+from typing import TYPE_CHECKING
 
-from src.core import jobs, run  # noqa: E402
-from src.core.database import JobStatus  # noqa: E402
+from src.core import jobs, run
+from src.core.database import JobStatus
 
 if TYPE_CHECKING:
     from src.classes.results import PipelineResult
 
 
-def _fire_alerts(result: "PipelineResult", job_id: UUID) -> None:  # type: ignore[name-defined]
+def _fire_alerts(result: PipelineResult, job_id: UUID) -> None:  # type: ignore[name-defined]
     """Check alert configs against a pipeline result and dispatch/record any matches."""
     from src.classes.alert import SentAlert
 
@@ -275,7 +275,7 @@ async def execute_job(job_id: UUID, pipeline_name: str, manager: Manager) -> Non
             await asyncio.to_thread(_ensure_targets_loaded, pipeline, manager)
             jobs.set_job_phase(job_id, None)
 
-        def on_result(r: "PipelineResult") -> None:
+        def on_result(r: PipelineResult) -> None:
             jobs.write_pipeline_result(job_id, r)
             _fire_alerts(r, job_id)
 

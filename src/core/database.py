@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import model_validator
-from sqlalchemy import inspect as sa_inspect, text
-from sqlmodel import SQLModel, Field, Relationship, create_engine
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import text
+from sqlmodel import Field, Relationship, SQLModel, create_engine
 
 from src import config
 
@@ -30,17 +30,17 @@ class Job(SQLModel, table=True):
     pipeline_name: str | None = None
     status: JobStatus = JobStatus.pending
     source: JobSource = Field(default=JobSource.manual)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     crash_reason: str | None = Field(default=None)
     phase: str | None = Field(default=None)
 
-    results: list["LivePipelineResult"] = Relationship(
+    results: list[LivePipelineResult] = Relationship(
         back_populates="job",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
     @model_validator(mode="after")
-    def set_default_pipeline_name(self) -> "Job":
+    def set_default_pipeline_name(self) -> Job:
         if self.pipeline_name is None:
             self.pipeline_name = str(self.id)
         return self
@@ -55,8 +55,8 @@ class LivePipelineResult(SQLModel, table=True):
     status: str  # green / orange / red
     duration: float = 0.0
 
-    job: Optional[Job] = Relationship(back_populates="results")
-    steps: list["LiveStepResult"] = Relationship(
+    job: Job | None = Relationship(back_populates="results")
+    steps: list[LiveStepResult] = Relationship(
         back_populates="pipeline_result",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
@@ -73,7 +73,7 @@ class LiveStepResult(SQLModel, table=True):
     skipped: bool
     duration: float = 0.0
 
-    pipeline_result: Optional[LivePipelineResult] = Relationship(back_populates="steps")
+    pipeline_result: LivePipelineResult | None = Relationship(back_populates="steps")
 
 
 class ArchivedRun(SQLModel, table=True):
@@ -85,7 +85,7 @@ class ArchivedRun(SQLModel, table=True):
     changed: bool
     duration: float = 0.0
 
-    steps: list["ArchivedStepResult"] = Relationship(
+    steps: list[ArchivedStepResult] = Relationship(
         back_populates="run",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
@@ -102,7 +102,7 @@ class ArchivedStepResult(SQLModel, table=True):
     skipped: bool
     duration: float = 0.0
 
-    run: Optional[ArchivedRun] = Relationship(back_populates="steps")
+    run: ArchivedRun | None = Relationship(back_populates="steps")
 
 
 class SentAlertRecord(SQLModel, table=True):
@@ -113,7 +113,7 @@ class SentAlertRecord(SQLModel, table=True):
     target_name: str = ""
     signal: str
     url: str = ""
-    triggered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    triggered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 engine = create_engine(f"sqlite:///{config.DB_FILE}")

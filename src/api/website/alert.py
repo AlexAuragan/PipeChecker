@@ -1,9 +1,9 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
-from starlette.datastructures import FormData
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
+from starlette.datastructures import FormData
 
 from src.api.web_auth import require_web_auth
 from src.api.website.utils import _fget, templates

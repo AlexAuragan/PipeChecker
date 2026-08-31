@@ -3,21 +3,21 @@
 """
 
 import asyncio
-from typing import Annotated, Any, Union
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.params import Depends
 from pydantic import BaseModel, Field
 
-from src.api.security import require_api_key
 from src.api import utils
-from src.classes.connectors import Manager, ConnectorType, Proxmox, Caddy, Connector
+from src.api.security import require_api_key
+from src.classes.connectors import Caddy, Connector, ConnectorType, Proxmox
 from src.core.storage import save_manager
 
 router = APIRouter(prefix="/connectors", tags=["connectors"], dependencies=[Depends(require_api_key)])
 
 ## Schema
-ConnectorBody = Annotated[Union[Proxmox, Caddy], Field(discriminator="type")]
+ConnectorBody = Annotated[Proxmox | Caddy, Field(discriminator="type")]
 
 
 class ConnectorPatch(BaseModel):

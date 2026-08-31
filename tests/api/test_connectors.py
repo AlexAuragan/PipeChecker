@@ -59,7 +59,7 @@ def _no_save(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture()
-def client_empty(api_key: str) -> Generator[TestClient, None, None]:
+def client_empty(api_key: str) -> Generator[TestClient]:
     manager = _make_manager()
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -68,7 +68,7 @@ def client_empty(api_key: str) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture()
-def client_with_proxmox(api_key: str) -> Generator[TestClient, None, None]:
+def client_with_proxmox(api_key: str) -> Generator[TestClient]:
     manager = _make_manager(_proxmox())
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:
@@ -77,7 +77,7 @@ def client_with_proxmox(api_key: str) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture()
-def client_with_both(api_key: str) -> Generator[TestClient, None, None]:
+def client_with_both(api_key: str) -> Generator[TestClient]:
     manager = _make_manager(_proxmox(), _caddy())
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with TestClient(app, headers={"X-API-Key": api_key}) as c:

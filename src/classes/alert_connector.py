@@ -33,7 +33,7 @@ class AlertConnector(BaseModel, ABC):
         )
 
     @staticmethod
-    def from_str(content: str) -> "AlertConnector":
+    def from_str(content: str) -> AlertConnector:
         data = yaml.safe_load(content)
         name, conf = next(iter(data.items()))
         cls = _REGISTRY[AlertConnectorType(conf.pop("type"))]

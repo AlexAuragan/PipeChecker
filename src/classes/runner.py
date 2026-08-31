@@ -1,14 +1,15 @@
 import re
 import time
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import cast, override
-import src.classes.target as t
+
 import src.classes.pipeline as p
 import src.classes.results as r
-import src.classes.utils as utils
-from src.classes.enums import ExecMethod, CheckMethod, Status
+import src.classes.target as t
+from src.classes import utils
+from src.classes.enums import CheckMethod, ExecMethod, Status
 
 
 class Runner(ABC):
@@ -52,12 +53,10 @@ class RemoteLinuxRunner(Runner, ABC):
     @abstractmethod
     def _exec_command(self, command: str) -> tuple[str, str, int, float]:
         """Execute a shell command. Returns (stdout, stderr, exit_code, duration)."""
-        pass
 
     @abstractmethod
     def _exec_script(self, script_path: Path) -> tuple[str, str, int, float]:
         """Upload and execute a script. Returns (stdout, stderr, exit_code, duration)."""
-        pass
 
     def _run_check(self, step: p.PipelineStep) -> tuple[str, str, int, float]:
         """Run the step command and return (stdout, stderr, branch, duration)."""

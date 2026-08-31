@@ -33,7 +33,7 @@ class PipelineStep(BaseModel):
         return Status.fail if branch == len(self.check_patterns) else Status.ok
 
     @model_validator(mode="after")
-    def validate_branch_count(self) -> "PipelineStep":
+    def validate_branch_count(self) -> PipelineStep:
         if not self.branches:
             return self
         if self.check_patterns is None:
@@ -45,7 +45,7 @@ class PipelineStep(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_exec_script(self) -> "PipelineStep":
+    def validate_exec_script(self) -> PipelineStep:
         if self.exec_method == ExecMethod.script:
             from src.config import SCRIPTS_FOLDER
 
@@ -55,7 +55,7 @@ class PipelineStep(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_check_pattern(self) -> "PipelineStep":
+    def validate_check_pattern(self) -> PipelineStep:
         if self.check_method.requires_pattern() and self.check_patterns is None:
             raise ValueError(f"Step '{self.id}': check_pattern is required for check_method '{self.check_method}'")
         if not self.check_method.requires_pattern() and self.check_patterns is not None:
@@ -90,7 +90,7 @@ class Pipeline(BaseModel):
     cron: str
 
     @model_validator(mode="after")
-    def validate_requires(self) -> "Pipeline":
+    def validate_requires(self) -> Pipeline:
         """
         Check that no step requires a non-existing step or a fail-signal branch.
         """
@@ -110,7 +110,7 @@ class Pipeline(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_connectors(self) -> "Pipeline":
+    def validate_connectors(self) -> Pipeline:
         """Check that all referenced connectors exist in the current config."""
         manager = Manager(autoload=True)
         for conn in self.connectors:
@@ -137,7 +137,7 @@ class Pipeline(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def unique_ids(self) -> "Pipeline":
+    def unique_ids(self) -> Pipeline:
         ids = [step.id for step in self.pipeline]
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:

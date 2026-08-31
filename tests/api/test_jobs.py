@@ -65,7 +65,7 @@ def db_engine(monkeypatch: pytest.MonkeyPatch) -> Engine:
 
 
 @pytest.fixture()
-def client(db_engine: Engine, api_key: str) -> Generator[TestClient, None, None]:
+def client(db_engine: Engine, api_key: str) -> Generator[TestClient]:
     manager = Manager(autoload=False)
     app.dependency_overrides[utils.get_manager] = lambda: manager
     with patch("src.core.run.run_pipeline", side_effect=_fake_run_pipeline):
@@ -75,7 +75,7 @@ def client(db_engine: Engine, api_key: str) -> Generator[TestClient, None, None]
 
 
 @pytest.fixture(autouse=True)
-def clear_cancelled() -> Generator[None, None, None]:
+def clear_cancelled() -> Generator[None]:
     import src.core.jobs as jobs_module
 
     jobs_module._cancelled.clear()

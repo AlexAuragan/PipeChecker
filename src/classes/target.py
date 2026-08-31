@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from ipaddress import IPv4Address
-from typing import Any
-
-from typing_extensions import Literal
+from typing import Any, Literal
 
 
 @dataclass

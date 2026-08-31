@@ -1,20 +1,21 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.api import utils
-from src.api.web_auth import RequiresLoginException
 from src.api.routers.alerts import router as alerts_router
 from src.api.routers.connectors import router as connectors_router
 from src.api.routers.jobs import router as jobs_router
 from src.api.routers.pipelines import router as pipelines_router
+from src.api.web_auth import RequiresLoginException
 from src.api.website.alert import router as web_alert_router
 from src.api.website.alert_connector import router as web_alert_connector_router
-from src.api.website.web import router as web_base_router
-from src.api.website.script import router as web_script_router
-from src.api.website.pipeline import router as web_pipeline_router
 from src.api.website.connector import router as web_connector_router
 from src.api.website.job import router as web_job_router
 from src.api.website.login import router as web_login_router
+from src.api.website.pipeline import router as web_pipeline_router
+from src.api.website.script import router as web_script_router
+from src.api.website.web import router as web_base_router
 from src.core.database import init_db
 
 init_db()
@@ -42,3 +43,4 @@ app.include_router(web_pipeline_router, prefix="/pipeline")
 app.include_router(web_connector_router, prefix="/connector")
 app.include_router(web_job_router, prefix="/job")
 app.include_router(web_base_router)
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")

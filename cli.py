@@ -81,10 +81,10 @@ def cmd_setup(args: Namespace) -> None:
         for k, v in env_lines.items():
             f.write(f"{k}={v}\n")
 
-    print(f"✔ API key generated")
+    print("✔ API key generated")
     print(f"  Key (save this, it won't be shown again): {key}")
-    print(f"✔ Web UI credentials generated")
-    print(f"  Username : admin")
+    print("✔ Web UI credentials generated")
+    print("  Username : admin")
     print(f"  Password : {web_password}  (save this, it won't be shown again)")
     print(f"  Credentials written to: {env_path}")
 
@@ -127,7 +127,7 @@ def cmd_setup(args: Namespace) -> None:
     try:
         subprocess.run(["systemctl", "daemon-reload"], check=True)
         subprocess.run(["systemctl", "enable", "--now", service_name], check=True)
-        print(f"✔ Service enabled and started")
+        print("✔ Service enabled and started")
         print(f"\n  Status : systemctl status {service_name}")
         print(f"  Logs   : journalctl -u {service_name} -f")
     except subprocess.CalledProcessError as e:

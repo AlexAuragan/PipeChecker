@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import APIRouter, HTTPException, Request, status, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ValidationError
 
 from src.api.security import require_api_key

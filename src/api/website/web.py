@@ -1,10 +1,11 @@
 from typing import Any
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+
 from src.api import utils
 from src.api.web_auth import require_web_auth
-from src.api.website.utils import templates, list_scripts
+from src.api.website.utils import list_scripts, templates
 from src.classes.pipeline import CheckMethod
 from src.core import jobs
 

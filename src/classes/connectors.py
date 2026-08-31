@@ -15,8 +15,7 @@ from pydantic import (
 )
 
 from src import config
-import src.classes.utils as utils
-import src.classes.target as target
+from src.classes import target, utils
 from src.classes.enums import ConnectorType
 from src.misc.caddy_parser import parse_caddyfile
 from src.misc.simple_parsers import parse_table, pct_config_parser
@@ -93,7 +92,7 @@ class Connector(BaseModel, ABC):
         return [v] if isinstance(v, str) else list(v)
 
     @model_validator(mode="after")
-    def check_exclusivity(self) -> "Connector":
+    def check_exclusivity(self) -> Connector:
         if self.config_ssh and self.config_url:
             raise ValueError("config_url and config_ssh are exclusive.")
         if self.config_path and self.config_url:
@@ -108,12 +107,10 @@ class Connector(BaseModel, ABC):
         config_ssh: str | None = None,
     ) -> list[target.Target]:
         """Fetch targets from one config source. Exactly one argument will be non-None."""
-        pass
 
     @abstractmethod
     def needs_reload(self) -> bool:
         """Return True if targets should be re-fetched before the next run."""
-        pass
 
     def load_targets(self) -> None:
         self._targets = []
@@ -140,7 +137,7 @@ class Connector(BaseModel, ABC):
         return yaml.dump({name: data}, default_flow_style=False).strip()
 
     @staticmethod
-    def from_str(content: str) -> "Connector":
+    def from_str(content: str) -> Connector:
         data = yaml.safe_load(content)
         name, conf = next(iter(data.items()))
         cls = _TYPE_MAP[ConnectorType(conf.pop("type")).value]

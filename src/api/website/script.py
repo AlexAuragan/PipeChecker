@@ -1,11 +1,16 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import (
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from src.api.web_auth import require_web_auth
 from src.api.website.utils import list_scripts, templates
-from src.config import SCRIPTS_FOLDER, ALLOWED_SCRIPT_EXTENSIONS
+from src.config import ALLOWED_SCRIPT_EXTENSIONS, SCRIPTS_FOLDER
 
 router = APIRouter(tags=["scripts"], dependencies=[Depends(require_web_auth)])
 

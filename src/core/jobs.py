@@ -1,8 +1,9 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session, col, select, delete as sql_delete
+from sqlmodel import Session, col, select
+from sqlmodel import delete as sql_delete
 
 from src.classes.alert import SentAlert
 from src.classes.results import PipelineResult
@@ -145,7 +146,7 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
 
     Returns the number of jobs affected.
     """
-    cutoff = datetime.now(timezone.utc) - _STALE_AFTER
+    cutoff = datetime.now(UTC) - _STALE_AFTER
     with Session(engine) as session:
         to_crash: list[Job] = []
 
@@ -170,7 +171,7 @@ def crash_stale_jobs(crash_all_running: bool = False) -> int:
 
 def archive_old_jobs() -> None:
     """Move terminal jobs older than 24h into the archive tables."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(UTC) - timedelta(days=7)
     with Session(engine) as session:
         old_jobs = session.exec(
             select(Job).where(

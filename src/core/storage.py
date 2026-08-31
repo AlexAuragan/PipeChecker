@@ -8,7 +8,7 @@ from src import config
 from src.classes import pipeline
 from src.classes.alert import AlertConfig
 from src.classes.alert_connector import AlertConnector
-from src.classes.connectors import Manager, Connector
+from src.classes.connectors import Connector, Manager
 
 
 def load_pipeline_config(

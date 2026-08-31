@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.api.web_auth import (
-    SESSION_COOKIE,
     _SESSION_LIFETIME,
-    verify_credentials,
+    SESSION_COOKIE,
     create_session_cookie,
+    verify_credentials,
 )
 from src.api.website.utils import templates
 
