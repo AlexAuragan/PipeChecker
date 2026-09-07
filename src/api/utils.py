@@ -16,7 +16,13 @@ from src.classes.connectors import Connector, Manager
 from src.classes.pipeline import Pipeline
 from src.core import storage
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(
+    job_defaults={
+        "misfire_grace_time": None,
+        "coalesce": True,
+        "max_instances": 1,
+    }
+)
 
 
 def make_scheduled_job(app: FastAPI, pipe: Pipeline):
