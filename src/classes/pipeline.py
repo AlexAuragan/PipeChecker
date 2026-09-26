@@ -24,6 +24,7 @@ class PipelineStep(BaseModel):
     check_patterns: list[str | float | int] | None = None
     branches: list[BranchConfig] = []
     requires: list[StepRequirement] = []
+    timeout: int = 60
 
     def get_branch_signal(self, branch: int) -> Status:
         if branch < len(self.branches):

@@ -2,6 +2,8 @@ from enum import Enum
 
 
 class Status(str, Enum):
+    severity: int
+
     def __new__(cls, value: str, severity: int):
         obj = str.__new__(cls, value)
         obj._value_ = value

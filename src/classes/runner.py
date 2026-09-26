@@ -51,22 +51,22 @@ class RemoteLinuxRunner(Runner, ABC):
     """Base runner for any target that executes standard Linux commands over SSH."""
 
     @abstractmethod
-    def _exec_command(self, command: str) -> tuple[str, str, int, float]:
+    def _exec_command(self, command: str, timeout: int) -> tuple[str, str, int, float]:
         """Execute a shell command. Returns (stdout, stderr, exit_code, duration)."""
 
     @abstractmethod
-    def _exec_script(self, script_path: Path) -> tuple[str, str, int, float]:
+    def _exec_script(self, script_path: Path, timeout: int) -> tuple[str, str, int, float]:
         """Upload and execute a script. Returns (stdout, stderr, exit_code, duration)."""
 
     def _run_check(self, step: p.PipelineStep) -> tuple[str, str, int, float]:
         """Run the step command and return (stdout, stderr, branch, duration)."""
         match step.exec_method:
             case ExecMethod.command:
-                stdout, stderr, exit_code, duration = self._exec_command(step.exec)
+                stdout, stderr, exit_code, duration = self._exec_command(step.exec, step.timeout)
             case ExecMethod.script:
                 from src.config import SCRIPTS_FOLDER
 
-                stdout, stderr, exit_code, duration = self._exec_script(SCRIPTS_FOLDER / step.exec)
+                stdout, stderr, exit_code, duration = self._exec_script(SCRIPTS_FOLDER / step.exec, step.timeout)
             case _:
                 raise ValueError(f"Unrecognized {step.exec_method}")
 
@@ -184,11 +184,11 @@ class PCTRunner(RemoteLinuxRunner):
             )
         return super().run_pipeline()
 
-    def _exec_command(self, command: str) -> tuple[str, str, int, float]:
-        return utils.execute_on_ct(self.target, command)
+    def _exec_command(self, command: str, timeout: int) -> tuple[str, str, int, float]:
+        return utils.execute_on_ct(self.target, command, timeout)
 
-    def _exec_script(self, script_path: Path) -> tuple[str, str, int, float]:
-        return utils.execute_script_on_ct(self.target, script_path)
+    def _exec_script(self, script_path: Path, timeout: int) -> tuple[str, str, int, float]:
+        return utils.execute_script_on_ct(self.target, script_path, timeout)
 
 
 class LinuxMachineRunner(RemoteLinuxRunner):
@@ -201,8 +201,8 @@ class LinuxMachineRunner(RemoteLinuxRunner):
     def __init__(self, target: t.RemoteLinuxMachine, pipeline: p.Pipeline):
         super().__init__(target, pipeline)
 
-    def _exec_command(self, command: str) -> tuple[str, str, int, float]:
+    def _exec_command(self, command: str, timeout: int) -> tuple[str, str, int, float]:
         return utils.execute_on_linux(self.target, command)
 
-    def _exec_script(self, script_path: Path) -> tuple[str, str, int, float]:
+    def _exec_script(self, script_path: Path, timeout: int) -> tuple[str, str, int, float]:
         return utils.execute_script_on_linux(self.target, script_path)

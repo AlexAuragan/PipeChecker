@@ -20,6 +20,7 @@ dev = [
     "basedpyright>=1.39.3",
     "pre-commit>=4.6.0",
     "pytest>=9.0.2",
+    "ruff>=0.16.9",
 ]
 [tool.black]
 line-length = 120

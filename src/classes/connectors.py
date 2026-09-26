@@ -3,7 +3,7 @@ from collections.abc import ItemsView, Iterator, KeysView, ValuesView
 from ipaddress import IPv4Address
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import (
@@ -219,7 +219,8 @@ class Proxmox(Connector):
             return True
         for cs in self.config_ssh:
             node_ip = IPv4Address(cs.split("@")[1])
-            node_ids = {t.pct_id for t in self._targets if t.node_ip == node_ip}
+            targets = cast("list[target.ProxmoxCT]", self._targets)
+            node_ids = {t.pct_id for t in targets if t.node_ip == node_ip}
             stdout = utils.execute_on_machine(cs, "pct list")
             remote_ids = {pct["VMID"] for pct in parse_table(stdout)}
             if node_ids != remote_ids:

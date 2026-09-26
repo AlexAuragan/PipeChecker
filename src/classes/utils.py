@@ -79,7 +79,7 @@ def execute_on_machine(config_ssh: str, command: str, return_error: bool = False
         client.close()
 
 
-def execute_on_ct(target: t.ProxmoxCT, command: str) -> tuple[str, str, int, float]:
+def execute_on_ct(target: t.ProxmoxCT, command: str, timeout: int) -> tuple[str, str, int, float]:
     """Execute a command inside a Proxmox LXC container, dispatching by OS type."""
     node_ssh = target.ssh_addr
     pct_id = target.pct_id
@@ -88,27 +88,27 @@ def execute_on_ct(target: t.ProxmoxCT, command: str) -> tuple[str, str, int, flo
     start = time.time()
     match ostype:
         case "ubuntu":
-            stdout_str, stderr_str, exit_code = execute_on_ubuntu_ct(node_ssh, pct_id, command)
+            stdout_str, stderr_str, exit_code = execute_on_ubuntu_ct(node_ssh, pct_id, command, timeout)
         case "debian":
-            stdout_str, stderr_str, exit_code = execute_on_debian_ct(node_ssh, pct_id, command)
+            stdout_str, stderr_str, exit_code = execute_on_debian_ct(node_ssh, pct_id, command, timeout)
         case _:
             raise NotImplementedError("Proxmox CT execution not implemented for os", ostype)
     return stdout_str, stderr_str, exit_code, time.time() - start
 
 
-def execute_on_debian_ct(node_ssh: str, pct_id: int, command: str) -> tuple[str, str, int]:
+def execute_on_debian_ct(node_ssh: str, pct_id: int, command: str, timeout: int) -> tuple[str, str, int]:
     token = "##CMD_OUTPUT_START##"
     inner = f"echo '{token}'; {command}"
     exec_cmd = f"pct exec {pct_id} -- bash -lc {shlex.quote(inner)}"
-    return _execute_helper(node_ssh, pct_id, command, exec_cmd=exec_cmd, token=token)
+    return _execute_helper(node_ssh, pct_id, command, exec_cmd=exec_cmd, token=token, timeout=timeout)
 
 
-def execute_on_ubuntu_ct(node_ssh: str, pct_id: int, command: str) -> tuple[str, str, int]:
+def execute_on_ubuntu_ct(node_ssh: str, pct_id: int, command: str, timeout: int) -> tuple[str, str, int]:
     # Ubuntu LXC containers require `su -l root` instead of `bash -lc` for a login shell
     token = "##CMD_OUTPUT_START##"
     inner = f"echo '{token}'; {command}"
     exec_cmd = f"pct exec {pct_id} -- su -l root -c {shlex.quote(inner)}"
-    return _execute_helper(node_ssh, pct_id, command, exec_cmd=exec_cmd, token=token)
+    return _execute_helper(node_ssh, pct_id, command, exec_cmd=exec_cmd, token=token, timeout=timeout)
 
 
 def _execute_helper(
@@ -142,11 +142,11 @@ def _execute_helper(
         client.close()
 
 
-def execute_script_on_ct(target: t.ProxmoxCT, script_path: Path) -> tuple[str, str, int, float]:
+def execute_script_on_ct(target: t.ProxmoxCT, script_path: Path, timeout: int) -> tuple[str, str, int, float]:
     """Base64-encode a local script and pipe it into bash inside the container."""
     script_b64 = base64.b64encode(script_path.read_bytes()).decode("ascii")
     command = f"echo {shlex.quote(script_b64)} | base64 -d | bash"
-    return execute_on_ct(target, command)
+    return execute_on_ct(target, command, timeout)
 
 
 def execute_on_linux(target: t.RemoteLinuxMachine, command: str, timeout: int = 60) -> tuple[str, str, int, float]:
@@ -165,9 +165,9 @@ def execute_on_linux(target: t.RemoteLinuxMachine, command: str, timeout: int = 
         return stdout_str, stderr_str, exit_code, duration
     except TimeoutError:
         raise RuntimeError(f"Timeout executing `{command}` on machine {target.hostname} via {target.ssh_addr}")
-    except paramiko.AuthenticationException as e:
+    except paramiko.AuthenticationException:
         # Can happen with password-only auth when no password is provided
-        raise e
+        raise
     finally:
         client.close()
 
