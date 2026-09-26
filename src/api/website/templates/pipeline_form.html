@@ -215,6 +215,7 @@
       flex-shrink: 0;
     }
 
+
     /* exec method pill toggle */
     .exec-toggle {
       display: inline-flex;
@@ -238,6 +239,39 @@
     .exec-toggle input[type="radio"]:checked + label {
       background: var(--ink);
       color: var(--surface);
+    }
+
+    .step-check-row {
+      grid-column: span 3;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 140px;
+      gap: 28px;
+      align-items: end;
+    }
+    /* Timeout input */
+    .timeout-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeout-input input {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .timeout-input span {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-light);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+      .step-check-row {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
     }
 
     /* script view modal */

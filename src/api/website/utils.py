@@ -158,12 +158,15 @@ def parse_pipeline_form(form: FormData) -> tuple[str, Pipeline]:
     name = _fget(form, "name").strip()
     cron = _fget(form, "cron").strip()
     runner_val = _fget(form, "runner").strip()
+
     connector_list = [v for k, v in form.multi_items() if k == "connectors" and isinstance(v, str)]
 
     indices = sorted({int(k[len("step_id_") :]) for k in form.keys() if k.startswith("step_id_")})
     steps = []
     for i in indices:
         sid = _fget(form, f"step_id_{i}").strip()
+        timeout_raw = _fget(form, f"step_timeout_{i}", "60").strip()
+        timeout = int(timeout_raw)
         if not sid:
             continue
         exec_method = (_fget(form, f"step_exec_method_{i}") or "command").strip()
@@ -177,6 +180,7 @@ def parse_pipeline_form(form: FormData) -> tuple[str, Pipeline]:
                 "id": sid,
                 "exec": exec_val,
                 "exec_method": exec_method,
+                "timeout": timeout,
                 "check_method": form.get(f"step_check_method_{i}") or "exit_code",
                 "check_patterns": (patterns := _parse_check_patterns(form, i)),
                 "branches": _parse_branches(form, i, patterns),

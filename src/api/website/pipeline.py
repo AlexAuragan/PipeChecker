@@ -94,6 +94,7 @@ def edit_pipeline_page(request: Request, name: str) -> HTMLResponse:
                 "exec": step.exec,
                 "exec_method": step.exec_method.value,
                 "exec_command": (step.exec if step.exec_method.value == "command" else ""),
+                "timeout": step.timeout,
                 "exec_script": step.exec if step.exec_method.value == "script" else "",
                 "check_method": step.check_method.value,
                 "check_patterns": step.check_patterns or [],
